@@ -1,7 +1,7 @@
 ---
 title: "Leaderboard: Local Storage and Firebase Integration"
 sidebarTitle: "Leaderboard"
-description: "Rudi Foodi supports both a localStorage leaderboard for local high scores and an optional Firebase Firestore global leaderboard. Learn how to configure and extend each."
+description: "Rudi Foodi saves completion times to localStorage by default and to Firebase Firestore when configured. Learn the score schema, write path, and entry UI."
 ---
 
 Rudi Foodi stores completion times in two places — a `localStorage` leaderboard for local high scores, and an optional Firebase Firestore global leaderboard that activates automatically when a real Firebase config is present. The same UI and score-entry flow handles both backends; the only difference is whether scores are written to a local JSON string or to a Firestore collection.
@@ -149,7 +149,7 @@ Each document is added to a `"leaderboard"` collection with `addDoc()` (compat A
 
 ### Recommended Firestore Security Rules
 
-```
+```js
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

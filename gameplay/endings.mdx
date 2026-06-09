@@ -1,5 +1,5 @@
 ---
-title: "Endings: Fly-Away and Meteor Sequences Explained"
+title: "Endings: Fly-Away and Meteor Sequences in Rudi Foodi"
 sidebarTitle: "Endings"
 description: "Rudi Foodi has two dramatic ending sequences — the Fly-Away ending and the Meteor ending. Learn what triggers each and what happens."
 ---
@@ -23,7 +23,7 @@ The Meteor ending triggers every time Rudi steps onto the golden octahedron **En
     The meteor becomes invisible and `explodeRoom()` fires. Every visible mesh in the scene (except the meteor core and Rudi's body parts) is turned invisible and replaced by debris chunks launched with `addDebris()`. An additional 90 extra debris pieces scatter outward from ground zero. A low-frequency sawtooth beep plays. The `#explosionOverlay` div flashes white.
   </Step>
   <Step title="Aftermath (meteorTimer > 6 s)">
-    Once `meteorTimer` exceeds **6 seconds**, `advanceLevelAfterMeteor()` is called. If `currentLevel < MAX_LEVELS` (20), the game advances to the next level: debris is cleared, Rudi is repositioned to the origin, all state is reset, and `spawnLevel()` runs the new map. If already at level 20, the Fly-Away ending is triggered instead.
+    Once `meteorTimer` exceeds **6 seconds**, `advanceLevelAfterMeteor()` is called. If `currentLevel < MAX_LEVELS` (20), the game advances to the next level: debris is cleared, Rudi is repositioned to the origin, all state is reset, and `spawnLevel()` runs the new map. If already at level 20, `showEnding("🐶 Good job, you won!", true)` is called directly — the game is over and the leaderboard prompt appears.
   </Step>
 </Steps>
 
@@ -61,7 +61,7 @@ if (currentLevel >= MAX_LEVELS && score >= 30 && !flyAwayEnding && !meteorEnding
 </Steps>
 
 <Note>
-  The "🐶 Oh no! Rudi got bored!" message fires regardless of whether the game was completed. The `completedGame` flag is `true` only when `currentLevel >= MAX_LEVELS` — if the fly-away fires on an earlier level through some edge case, the leaderboard prompt is skipped.
+  The "🐶 Oh no! Rudi got bored!" message always fires alongside `completedGame = true` because `triggerFlyAwayEnding()` is only ever called when `currentLevel >= MAX_LEVELS`. This means the leaderboard name-entry prompt always appears at the end of a fly-away sequence.
 </Note>
 
 ---

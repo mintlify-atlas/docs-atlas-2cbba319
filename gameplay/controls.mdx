@@ -1,5 +1,5 @@
 ---
-title: "Controls: Keyboard, Mouse, and Touch Reference"
+title: "Controls: Keyboard, Mouse, and Touch Input Reference"
 sidebarTitle: "Controls"
 description: "Complete control reference for Rudi Foodi on desktop and mobile — WASD movement, mouse camera drag, touch joystick, and the Zoomies button."
 ---
@@ -74,7 +74,7 @@ Rudi Foodi runs entirely in the browser and supports two control schemes out of 
 
 The game camera is a `THREE.PerspectiveCamera(60, ...)` — a 60° vertical field of view — that orbits around Rudi at a fixed distance of **20 units**. Its position is recalculated every frame from `cameraYaw` and `cameraPitch`:
 
-```
+```text
 horizontalDistance = cos(cameraPitch) × 20
 verticalOffset     = sin(cameraPitch) × 20 + 10
 camX = rudiPos.x − sin(cameraYaw) × horizontalDistance

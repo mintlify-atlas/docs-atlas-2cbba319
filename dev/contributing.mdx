@@ -51,7 +51,7 @@ Rudi Foodi is fully open source. Because the entire game is a single HTML file w
     Add a new entry to the `musicThemes[]` array. Each entry defines a `chords` array of frequency triplets (bass, pad1, pad2), a `melody` array of frequencies, and a `speed` in milliseconds per beat. The existing 10 entries cycle across 20 levels via modulo, and any new entry you add is picked up automatically.
   </Accordion>
   <Accordion title="New power-up types">
-    Power-ups have two parts. First, add a case for your new type string inside `applyPowerUp(type)` — this is where the actual effect logic lives (speed, size, clone creation, etc.). Second, register the new color and type in `powerTypes[]` and add a `makePowerUp(color, type)` call inside `spawnLevel()` so the orb actually appears on the map.
+    Power-ups have two parts. First, add an `if` block for your new type string inside `applyPowerUp(type)` — this is where the actual effect logic lives (speed, size, clone creation, etc.). Second, add a `[color, 'yourtype']` entry to `powerTypes[]`. The `spawnLevel()` function already iterates `powerTypes[]` and calls `makePowerUp()` for each entry automatically, so the orb will appear on the map with no further changes needed.
   </Accordion>
   <Accordion title="New map geometry layouts">
     Add a new `if (theme.map === 'yourmap')` block inside `makeRoom(level)`. Use `addRoomMesh()` to place `THREE.BoxGeometry`, `THREE.CylinderGeometry`, `THREE.ConeGeometry`, and `THREE.SphereGeometry` objects. All geometry placed through `addRoomMesh()` automatically receives shadow casting/receiving and is registered in `roomObjects[]` for cleanup on level transition.

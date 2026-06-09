@@ -1,7 +1,7 @@
 ---
-title: "3D Rendering: Three.js Scene Setup in Rudi Foodi"
+title: "3D Rendering: Three.js Scene and Geometry in Rudi Foodi"
 sidebarTitle: "Rendering"
-description: "How Rudi Foodi builds its 3D world using Three.js: scene graph, lights, camera, geometry builders, and level room generation."
+description: "How Rudi Foodi builds its 3D world using Three.js: scene graph, lighting, perspective camera, geometry helper functions, and per-level room generation."
 ---
 
 Rudi Foodi renders everything with Three.js and WebGL. The scene graph, lights, camera, and all geometry are built entirely in JavaScript using Three.js primitives — there are no external 3D model files, no texture atlases, and no shader files. Every object from Rudi's ears to the factory pipes of Level 10 is assembled from raw `BoxGeometry`, `ConeGeometry`, `CylinderGeometry`, and `SphereGeometry` calls at startup.

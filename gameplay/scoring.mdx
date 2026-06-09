@@ -1,5 +1,5 @@
 ---
-title: "Scoring, Treat Goals, and Level Progression"
+title: "Scoring: Treat Goals and Level Progression in Rudi Foodi"
 sidebarTitle: "Scoring"
 description: "Understand how treat collection, level goals, and speed scaling work across Rudi Foodi's 20 levels. Includes the completion time leaderboard."
 ---
@@ -89,12 +89,12 @@ speedMultiplier = 1 + speedStacks * 1.5;
 
 ## Bonus Mechanics During Progression
 
-Two special milestone events trigger automatically when the score threshold is crossed:
+Two special milestone events trigger automatically when the within-level score threshold is crossed. The `score` variable resets to zero on every level-up, so these thresholds apply to treats collected **within the current level** — not cumulatively across the whole run. Once a mode activates it stays on for the remainder of the run and is only cleared by `resetGameToMenu()`.
 
-| Score Reached | Event |
-| ------------- | ----- |
-| 10 treats collected (cumulative across level) | **Rudi Spin Mode** activates — Rudi rotates continuously on the Z-axis |
-| 20 treats collected (cumulative across level) | **Rudi Dance Mode** activates — Rudi's head bobs in a sine wave |
+| Within-Level Score | Event |
+| ------------------ | ----- |
+| 10 treats collected this level | **Rudi Spin Mode** activates — Rudi rotates continuously on the Z-axis |
+| 20 treats collected this level | **Rudi Dance Mode** activates — Rudi's head bobs in a sine wave |
 | Advancing to level 10 or beyond | A clone is automatically spawned on each level-up |
 
 ---

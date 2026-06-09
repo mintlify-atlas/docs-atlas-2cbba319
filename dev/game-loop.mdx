@@ -1,7 +1,7 @@
 ---
-title: "Game Loop, Physics, and Clone AI in Rudi Foodi"
+title: "Game Loop, Physics, and Clone AI in Rudi Foodi Game"
 sidebarTitle: "Game Loop"
-description: "How Rudi Foodi's animate() loop, delta-time movement, collision detection, clone AI, and debris physics all work together."
+description: "How Rudi Foodi's animate() loop drives delta-time movement, collision detection, clone AI, debris physics, and both renderers each frame."
 ---
 
 Rudi Foodi's game loop is a standard `requestAnimationFrame` loop that computes delta time and routes to either the title-screen updater or the gameplay updater each frame. Everything — movement, animation, collision, AI, and physics — runs inside a single JavaScript thread with no workers and no fixed-step substep logic.
@@ -37,7 +37,7 @@ animate();
   `updateDebris()` runs unconditionally every frame — debris launched by the meteor explosion keeps flying even during the ending cinematics.
 </Note>
 
-When `gameStarted` is `false` (title screen), only `updateTitle(dt)` runs. That function rotates and bobs the preview dog in the title-screen mini-renderer and calls `titleRenderer.render()` separately from the main renderer.
+When `gameStarted` is `false` (title screen), only `updateTitle(dt)` runs. That function rotates and bobs the preview dog, then calls both `titleRenderer.render(titleScene, titleCamera)` (the title-card canvas) and `renderer.render(scene, camera)` (the main scene). Both renderers advance every title-screen frame.
 
 ## `updateGameplay(dt)`
 

@@ -25,17 +25,17 @@ All visual styling lives in one `<style>` tag in the `<head>`. It covers:
 - **HUD** (`#hud`) — level counter, treat score, zoomies percentage, zoom-stacks button, clone-count button, spin-toggle button, power-up counter
 - **Title screen** (`#titleScreen`, `#gameTitle`, `#playButton`, `#controlsCard`, `#titleRudi`) — the gradient splash screen shown before play starts
 - **Joystick** (`#joystickBase`, `#joystickKnob`) — the left-side touch joystick
-- **Zoom controls** (`#zoomButton`, `#zoomToggleButton`) — the jump button and the ZOOMIES toggle
+- **Zoom controls** (`#zoomButton`) — the ZOOMIES toggle button
 - **Camera zone** (`#cameraZone`) — invisible full-screen overlay that captures drag-to-rotate pointer events
 - **Overlay panels** (`#creditsPanel`, `#leaderboardPanel`, `#nameEntryPanel`) — modal cards for credits, the global/local leaderboard, and the post-game name-entry form
-- **End screen** (`#endText`, `#endingMessage`, `#goBackButton`) — the ending overlay shown after fly-away, meteor, or final-boss cutscenes
+- **End screen** (`#endText`, `#endingMessage`, `#goBackButton`) — the ending overlay shown after fly-away or meteor ending cutscenes
 - **Flash overlay** (`#explosionOverlay`) — a full-screen white div that fades in during the meteor explosion
 
 ### 2. `<body>` HTML — Static DOM Elements
 
 The `<body>` declares the game's UI skeleton before any JavaScript runs:
 
-- `#titleScreen` — full-screen title with difficulty buttons (Easy / Medium / Hard), the Play button, the animated Rudi preview canvas, and the controls reference card
+- `#titleScreen` — full-screen title with the `#playButton` Play button, the animated Rudi preview canvas (`#titleRudi`), and the controls reference card
 - `#creditsPanel` — modal overlay with credits and lore text
 - `#leaderboardPanel` — modal overlay with the `<ol id="leaderboardList">` populated at runtime
 - `#nameEntryPanel` — modal overlay with `#usernameInput`, `#nameEntryError`, Save and Skip buttons
@@ -43,7 +43,7 @@ The `<body>` declares the game's UI skeleton before any JavaScript runs:
 - `#hint` — bottom-center hint bar updated dynamically during gameplay
 - `#cameraZone` — transparent pointer-capture layer for camera drag
 - `#joystickBase` / `#joystickKnob` — touch joystick
-- `#zoomToggleButton` / `#zoomButton` — ZOOMIES toggle and the jump/ascend button
+- `#zoomButton` — the ZOOMIES toggle button
 - `#explosionOverlay` — white flash div
 - `#endText` / `#endingMessage` / `#goBackButton` — end-game screen
 
@@ -118,7 +118,7 @@ Three small helper functions build all in-game geometry:
 
 ### Level Generation
 
-- **`makeRoom(level)`** — clears `roomObjects[]`, sets the scene background and fog to the level theme's sky colour, recolours the ground and carpet, then builds level geometry based on the theme's `map` key (walls, islands, buildings, platforms, crystals, etc.). Calls `addBetterLevelDetails()` for extra decorative geometry per theme.
+- **`makeRoom(level)`** — clears `roomObjects[]`, sets the scene background and fog to the level theme's sky colour, recolours the ground and carpet, then builds level geometry based on the theme's `map` key (walls, islands, buildings, platforms, crystals, etc.).
 - **`spawnLevel(level)`** — calls `makeRoom()`, then clears and respawns treats and power-ups. Treat count scales with level (capped at 90); power-up count decreases with level (minimum 6).
 - **`makeTreat()`** — creates a spinning gold cone treat and adds it to the scene and `treats[]`.
 - **`makePowerUp(color, type)`** — creates a sphere orb with a `userData.type` string (`"speed"`, `"big"`, `"small"`, `"clone3"`, `"clone1"`) and adds it to `powerUps[]`.
@@ -148,9 +148,9 @@ The `audio` object holds the Web Audio API context and node references. Key func
 
 ### Endings
 
-Three distinct ending sequences replace `updateGameplay` in the animation loop:
+Two distinct ending sequences replace `updateGameplay` in the animation loop:
 
-- **`triggerFlyAwayEnding()`** / **`updateFlyAwayEnding(dt)`** — Rudi floats upward and flies off screen. Triggered when the last level's treat goal is met in Easy or Medium mode.
+- **`triggerFlyAwayEnding()`** / **`updateFlyAwayEnding(dt)`** — Rudi floats upward and flies off screen. Triggered when the last level's treat goal is met after completing all 20 levels.
 - **`triggerMeteorEnding()`** / **`updateMeteorEnding(dt)`** — a textured lava meteor descends from above and explodes, shattering all room geometry into debris. Triggered by collecting the golden ending star.
 - **`advanceLevelAfterMeteor()`** — after the explosion settles, resets the scene and advances to the next level (or calls `showEnding` if already on level 20).
 - **`showEnding(message, completedGame)`** — displays `#endText` with the ending message and optionally calls `askForLeaderboardName()`.
@@ -168,22 +168,14 @@ When `GLOBAL_LEADERBOARD_ENABLED` is `true`, reads and writes go to Firestore in
 ```js
 function animate() {
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.033); // capped at ~30 fps minimum
-
-  if (!gameStarted) {
-    updateTitle(dt);   // spins the title-screen Rudi preview
-    return;
-  }
-
-  if (finalBossEnding)   updateFinalBossEnding(dt);
-  else if (flyAwayEnding) updateFlyAwayEnding(dt);
-  else if (meteorEnding)  updateMeteorEnding(dt);
-  else                    updateGameplay(dt);
-
-  updateHunter(dt);   // moves the hunter dog in Medium/Hard mode
-  updateDebris();     // advances explosion debris
+  const dt = Math.min(clock.getDelta(), 0.033);
+  if (!gameStarted) { updateTitle(dt); return; }
+  if (flyAwayEnding) updateFlyAwayEnding(dt);
+  else if (meteorEnding) updateMeteorEnding(dt);
+  else updateGameplay(dt);
+  updateDebris();
   renderer.render(scene, camera);
 }
 ```
 
-`animate()` uses `THREE.Clock` for frame-delta and caps `dt` at `0.033` seconds to prevent physics tunnelling on slow frames. The title screen runs a separate `titleRenderer` that renders `titleScene` (containing only the spinning Rudi preview) into the `#titleRudi` div.
+`animate()` uses `THREE.Clock` for frame-delta and caps `dt` at `0.033` seconds to prevent physics tunnelling on slow frames. When `gameStarted` is `false`, `updateTitle(dt)` spins the Rudi preview in the `#titleRudi` div (rendered by a dedicated `titleRenderer` and `titleScene`) and returns early, bypassing all gameplay logic.
