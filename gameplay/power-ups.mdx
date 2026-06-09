@@ -1,0 +1,68 @@
+---
+title: "Power-Ups: Every Effect in Rudi Foodi"
+sidebarTitle: "Power-Ups"
+description: "Rudi Foodi has five power-up types that change speed, size, and clone count. Learn each color, its effect, and how power-up animations work."
+---
+
+Power-ups are scattered across every level as glowing, rotating orbs. Walk Rudi within **5 units** of an orb to collect it — the orb disappears immediately, the corresponding effect is applied, and Rudi snaps into a brief animated transformation sequence. Some effects are permanent and stack across levels, while others are timed transformations that revert after 12 seconds. Every orb spawns at a random position via `randomPos(600)`, floating at a fixed height of **3.3 units** above the ground.
+
+---
+
+## Power-Up Reference
+
+| Color | Internal Type | Effect |
+| --- | --- | --- |
+| 🔵 Blue (`#1e9bff`) | `speed` | Permanently increments `speedStacks` by 1. `speedMultiplier` recalculates to `1 + speedStacks × 1.5`. Each stack is counted in the **Zoom stacks** HUD button. |
+| 🟡 Yellow (`#ffdd22`) | `big` | Sets `sizeMultiplier` to **2.2** and transitions Rudi to the `"big"` scale form `(2.35, 2.7, 2.35)`. Reverts to normal after **12 seconds**. |
+| 🔴 Red (`#ff3333`) | `small` | Sets `sizeMultiplier` to **0.45** and transitions Rudi to the `"small"` scale form `(0.48, 0.62, 0.48)`. Reverts to normal after **12 seconds**. |
+| 🌈 Rainbow / cycling HSL (`#ff55ff` base, HSL-animated) | `clone3` | Spawns **3 clones** via three successive calls to `createClone()`. The orb's color cycles through the full hue spectrum every frame. |
+| 🔵 Flashing cyan-blue (`#00ccff`, pulse-animated) | `clone1` | Spawns **1 clone** via a single call to `createClone()`. The orb pulses between cyan and bright blue in real time. |
+
+<Note>
+  Blue speed stacks are **permanent** — they survive level transitions and are never reset unless you manually tap the **Zoom stacks** HUD button twice. After 10 stacks with at least one clone present, a special "Maximum Zoomies" event fires and the first clone launches skyward.
+</Note>
+
+<Warning>
+  Rainbow (`clone3`) and clone (`clone1`) power-ups can be a double-edged sword. Clones orbit Rudi and **also collect treats**, so a large pack of clones will drain the treat pool faster than the level goal refills it. This can make reaching the goal easier — but it also means power-ups (including more clone orbs) are consumed more quickly.
+</Warning>
+
+---
+
+## Spawning
+
+Power-ups are created by `makePowerUp(color, type)`. The function constructs a `THREE.SphereGeometry(3.2, 16, 8)` orb, places it at a random position, stores the type in `orb.userData.type`, and adds it to the `powerUps` array.
+
+The number of power-ups per level follows this formula:
+
+```js
+const powerCount = Math.max(6, 28 - level);
+```
+
+This means earlier levels are **much more generous** with power-ups. The five types cycle in order — `speed`, `big`, `small`, `clone3`, `clone1` — so every set of five orbs contains exactly one of each type.
+
+| Level | Power-Ups Spawned |
+| ----- | ----------------- |
+| 1     | 27                |
+| 5     | 23                |
+| 10    | 18                |
+| 15    | 13                |
+| 20    | 8                 |
+| 22+   | 6 (minimum)       |
+
+---
+
+## Power-Up Animation
+
+When Rudi touches a power-up, `applyPowerUp(type)` calls `animateRudiPower(nextForm)` which sets up a `powerAnim` object driving Rudi's scale over a short duration. Every frame, `updatePowerAnimation(dt)` advances the timer and interpolates Rudi's scale between keyframes.
+
+Each form uses a different animation style:
+
+| Target Form | Duration | Style         | Mid-Scale Keyframe              |
+| ----------- | -------- | ------------- | ------------------------------- |
+| `"big"`     | 0.55 s   | `growSquash`  | `(2.63, 2.32, 2.63)` (squash before expand) |
+| `"small"`   | 0.50 s (0.72 s from `"big"`) | `shrink` | None — Rudi wobbles on Z-axis as he shrinks |
+| `"speed"`   | 0.42 s   | `stretchZoom` | `(0.92, 1.55, 1.85)` (stretch forward)  |
+| `"clone"`   | 0.50 s   | `clonePop`    | Derived from current scale × `(0.72, 1.45, 1.2)` |
+| `"normal"`  | 0.50 s   | `settle`      | None — smooth ease-in-out return |
+
+Transitions that have a mid-scale use `easeOutBack` for both halves of the animation (giving a slight overshoot feel). Transitions without a mid-scale use `easeInOut`. The variable `currentPowerForm` always tracks which form is active — `'normal'`, `'big'`, `'small'`, `'speed'`, or `'clone'` — and is reset to `'normal'` by `resetGameToMenu()`.

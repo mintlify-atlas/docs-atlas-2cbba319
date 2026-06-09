@@ -1,0 +1,78 @@
+---
+title: "Run Rudi Foodi Locally: Zero-Build Setup"
+sidebarTitle: "Local Setup"
+description: "Rudi Foodi has no build step. Open the HTML file in any modern browser to run the game locally and start hacking on it."
+---
+
+Rudi Foodi is a zero-dependency, zero-build game. There is no `npm install`, no bundler, no server required. The entire game ships as a single self-contained HTML file — open it in a browser and you are playing.
+
+## Requirements
+
+Any modern browser that supports **WebGL**, the **Web Audio API**, and **Pointer Events** will run Rudi Foodi. Chrome, Firefox, Edge, and Safari all work. Three.js r0.160.0 is loaded directly from the unpkg CDN inside the HTML file, so there is nothing to install locally. Node.js is not required to play or to modify the game.
+
+<Note>
+  There is no `npm install` step. There is no `package.json`. There is no build pipeline. The game is a single `.html` file. Open it — that is it.
+</Note>
+
+## Steps to Run
+
+<Steps>
+  <Step title="Clone or download the repository">
+    ```bash
+    git clone https://github.com/mbeckham4-hub/Rudi-Foodi.git
+    cd Rudi-Foodi
+    ```
+    Alternatively, download the ZIP from GitHub and extract it anywhere on your machine.
+  </Step>
+  <Step title="Locate the game file">
+    The playable file is `rudi_low_poly_3_d_game 6.html`. Note the **space in the filename** — this is intentional and must be preserved if you reference it from the command line or a script.
+  </Step>
+  <Step title="Open it in your browser">
+    Double-click the file in your file manager, or use **File → Open** in your browser. No server needed for basic play.
+  </Step>
+  <Step title="Click Play on the title screen">
+    The title screen loads immediately. Choose a difficulty (Easy, Medium, or Hard), then press **PLAY**. The first pointer interaction also initialises the Web Audio API so sound starts working.
+  </Step>
+</Steps>
+
+## Optional: Local HTTP Server
+
+Some browsers restrict the Web Audio API when a file is opened from a `file://` URL. If you open the game and audio is silent, serve it over HTTP instead.
+
+<Tip>
+  Python ships a zero-config HTTP server. Run this from the directory containing the game file, then open the URL below in your browser.
+</Tip>
+
+```bash
+python3 -m http.server 8080
+# Then open http://localhost:8080/rudi_low_poly_3_d_game%206.html
+```
+
+Any other static file server works equally well — `npx serve .`, `npx http-server`, or the Live Server extension in VS Code all serve the file correctly over `http://localhost`.
+
+## preview.html
+
+The repository also contains `preview.html`. This is a **static landing page** for the game — it shows the title, a 3D Rudi render, and feature highlights. It is not the game itself. Open `rudi_low_poly_3_d_game 6.html` to play.
+
+## Firebase (Optional): Global Leaderboard
+
+Rudi Foodi supports a global leaderboard backed by Firebase Firestore. Without any configuration the leaderboard falls back to `localStorage`, which works offline and per-browser.
+
+To enable the global leaderboard:
+
+1. Create a free [Firebase](https://firebase.google.com/) project.
+2. Enable **Firestore** in the project console.
+3. Open `rudi_low_poly_3_d_game 6.html` in a text editor and find the `firebaseConfig` constant near the top of the `<script>` block:
+
+```js
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_API_KEY_HERE",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  ...
+};
+```
+
+4. Replace the placeholder values with the web config object from your Firebase project settings.
+
+Once `apiKey` no longer contains the string `"PASTE_"`, the constant `GLOBAL_LEADERBOARD_ENABLED` evaluates to `true` and all score writes go to Firestore instead of `localStorage`.

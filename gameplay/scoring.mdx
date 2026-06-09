@@ -1,0 +1,127 @@
+---
+title: "Scoring, Treat Goals, and Level Progression"
+sidebarTitle: "Scoring"
+description: "Understand how treat collection, level goals, and speed scaling work across Rudi Foodi's 20 levels. Includes the completion time leaderboard."
+---
+
+Scoring in Rudi Foodi is delightfully simple: every treat Rudi (or one of his clones) collects adds **1** to the current score. When the score reaches the level's treat goal, the game advances to the next level, the score resets to zero, and a fresh set of treats and power-ups is scattered across the new world. There are **20 levels** in total, each with a unique theme and name — from the *Clean Bedroom* to the *Final Dog Park*. Clearing all 20 in one sitting records your total run time on the leaderboard.
+
+---
+
+## Treat Goals
+
+The treat goal for each level is calculated from:
+
+```js
+const levelGoal = Math.min(75, 15 + currentLevel * 5);
+```
+
+Goals rise by 5 per level until they cap at 75 starting from level 12.
+
+| Level    | Treat Goal |
+| -------- | ---------- |
+| 1        | 20         |
+| 2        | 25         |
+| 3        | 30         |
+| 4        | 35         |
+| 5        | 40         |
+| 6        | 45         |
+| 7        | 50         |
+| 8        | 55         |
+| 9        | 60         |
+| 10       | 65         |
+| 11       | 70         |
+| 12       | 75         |
+| 13 – 20  | 75         |
+
+<Tip>
+  The treat goal never exceeds 75, but the number of treats on the map does keep growing (see below). This means later levels actually have a **higher treat density relative to the goal**, making collection a little easier even as the map gets more chaotic.
+</Tip>
+
+---
+
+## Treat Count per Level
+
+The total number of treats spawned each level follows:
+
+```js
+const treatCount = Math.min(90, 32 + level * 5);
+```
+
+| Level    | Treats on Map |
+| -------- | ------------- |
+| 1        | 37            |
+| 2        | 42            |
+| 5        | 57            |
+| 10       | 82            |
+| 11       | 87            |
+| 12 – 20  | 90 (cap)      |
+
+Each treat is a spinning cone (`THREE.ConeGeometry`) placed at a random position via `randomPos(620)` at height **1.05 units**. When Rudi or a clone comes within **3.1 units** of a treat, `collectTreat()` fires — the treat is teleported to a new random position rather than removed, so the count on the map stays constant.
+
+---
+
+## Speed Scaling
+
+Starting from level 4, each time you advance a level the base `speedMultiplier` is permanently increased:
+
+```js
+if (currentLevel >= 4) speedMultiplier += 0.25;
+```
+
+This applies every level-up from level 4 onward (i.e., when entering level 5, 6, 7 …). By the time you reach level 10 the base multiplier has grown substantially, making Rudi noticeably faster even without any blue power-up stacks.
+
+Blue power-up speed stacks layer on top of this using a separate formula:
+
+```js
+speedMultiplier = 1 + speedStacks * 1.5;
+```
+
+<Warning>
+  Collecting a blue power-up **overwrites** the formula-based `speedMultiplier` entirely. This means if you have accumulated level-scaling speed *and* you then collect a blue orb, the level bonus is absorbed into the stacks formula. Collecting stacks early maximises their long-term effect.
+</Warning>
+
+<Tip>
+  Blue speed stacks are the best long-term investment in the game. A single stack sets `speedMultiplier` to **2.5** (from `1 + 1 × 1.5`). Two stacks give **4.0**. They persist across all 20 levels and can only be reset by double-tapping the Zoom stacks HUD button.
+</Tip>
+
+---
+
+## Bonus Mechanics During Progression
+
+Two special milestone events trigger automatically when the score threshold is crossed:
+
+| Score Reached | Event |
+| ------------- | ----- |
+| 10 treats collected (cumulative across level) | **Rudi Spin Mode** activates — Rudi rotates continuously on the Z-axis |
+| 20 treats collected (cumulative across level) | **Rudi Dance Mode** activates — Rudi's head bobs in a sine wave |
+| Advancing to level 10 or beyond | A clone is automatically spawned on each level-up |
+
+---
+
+## Completion Time and the Leaderboard
+
+When you complete all 20 levels and the Fly-Away ending fires with `completedGame = true`, the game measures:
+
+```js
+const completedTime = performance.now() - gameStartTime;
+```
+
+`gameStartTime` is set to `performance.now()` the moment you press **PLAY**. The elapsed milliseconds are formatted as `M:SS` (e.g., `12:34`) and displayed as "Your time" in the name-entry prompt.
+
+After entering a unique username, the score is saved — either to a **Firebase Firestore** global leaderboard (if configured) or to `localStorage` under the key `rudiFoodiLeaderboardV1` as a fallback. The leaderboard displays the top 20 entries ordered by fastest time.
+
+---
+
+## HUD Reference
+
+All live scoring data is shown in the top-left HUD (`#hud`):
+
+| Element                 | ID                    | Shows                                        |
+| ----------------------- | --------------------- | -------------------------------------------- |
+| Level indicator         | `#levelDisplay`       | Current level number (1 – 20)                |
+| Treat counter           | `#score`              | Treats collected this level                  |
+| Boost bar               | `#boost`              | Remaining boost energy (0 – 100%)            |
+| Zoom stacks button      | `#zoomStacksButton`   | Cumulative blue speed stacks                 |
+| Clone count button      | `#cloneCountButton`   | Number of active clones                      |
+| Power-ups remaining     | `#powerCount`         | Orbs still on the map for the current level  |

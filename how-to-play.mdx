@@ -1,0 +1,120 @@
+---
+title: "How to Play Rudi Foodi: Rules and Objectives"
+sidebarTitle: "How to Play"
+description: "Learn the core rules of Rudi Foodi — collect treats to advance levels, grab power-ups, use Zoomies, and survive 20 increasingly chaotic worlds."
+---
+
+Your job is straightforward: guide Rudi across each world, collect enough treats to meet the level's treat goal, and advance through all 20 levels. Along the way you'll grab power-ups that warp Rudi's size and speed, accidentally spawn an army of clones, toggle Zoomies mode to move at ridiculous velocity, and — if you touch the golden star — survive a meteor strike. Clear level 20 with enough treats and something special happens. The chaos is the point.
+
+## Objective
+
+Each level has a **treat goal**. When your treat count hits that number, the level clears: your score resets to zero, the world rebuilds, and the next level begins.
+
+The treat goal formula is:
+
+```js
+const levelGoal = Math.min(75, 15 + currentLevel * 5);
+```
+
+The goal grows with each level and caps at **75 treats** from level 13 onward. Here are a few reference points:
+
+| Level | Treat Goal |
+|-------|-----------|
+| 1     | 20        |
+| 2     | 25        |
+| 4     | 35        |
+| 6     | 45        |
+| 8     | 55        |
+| 10    | 65        |
+| 12    | 75 (cap)  |
+| 13+   | 75        |
+| 20    | 75        |
+
+<Tip>
+  Each level also spawns a fixed pool of treats on the map (`Math.min(90, 32 + level * 5)`), so higher levels actually put more treats in the world even as the goal is already capped — your clones become very helpful.
+</Tip>
+
+## Progression
+
+Clearing a level's treat goal triggers a level-up:
+
+<Steps>
+  <Step title="Treat goal reached">
+    Your score hits `levelGoal`. A level-up fires, your score resets to `0`, and `currentLevel` increments by one.
+  </Step>
+  <Step title="New world loads">
+    `spawnLevel()` tears down the old room, builds the new themed geometry, respawns treats and power-ups, and starts the level's unique music track.
+  </Step>
+  <Step title="Speed increases (every 4 levels)">
+    Starting at level 4, Rudi's base speed multiplier increases each time `currentLevel >= 4`:
+
+    ```js
+    if (currentLevel >= 4) speedMultiplier += 0.25;
+    ```
+
+    This stacks with every additional level reached, so later worlds feel noticeably faster even before any power-ups.
+  </Step>
+  <Step title="Clone spawns at level 10+">
+    The first time `currentLevel >= 10`, `createClone()` is called automatically — a clone of Rudi appears and begins orbiting and collecting treats on its own.
+  </Step>
+</Steps>
+
+<Note>
+  The golden eight-pointed star (`endingStar`) repositions itself on every level-up. If you run into it at any point, a meteor event begins — see **Endings** below.
+</Note>
+
+## Zoomies Mode
+
+The **ZOOMIES** button sits in the bottom-right corner of the screen. Tapping it toggles a speed burst.
+
+- **On:** Rudi's top speed jumps from `9 × speedMultiplier` to `24 × speedMultiplier`. The boost meter (shown in the HUD as `Zoomies: XX%`) drains at 22% per second.
+- **Off:** The boost meter refills at 18% per second.
+- **Visual feedback:** The ZOOMIES button glows yellow while active. The music melody also speeds up during Zoomies.
+
+### Zoom Stacks
+
+Every Blue power-up you (or a clone) collect permanently raises your Zoomies top speed:
+
+```js
+speedStacks++;
+speedMultiplier = 1 + speedStacks * 1.5;
+```
+
+Your current stack count is shown in the HUD via the **"Zoom stacks: N"** button (`zoomStacksButton` / `zoomStacksDisplay`). Stacks compound fast — 10 stacks gives a 16× speed multiplier.
+
+<Tip>
+  Tap the **Zoom stacks** button once to arm a reset (it turns red), then tap it again to wipe all stacks and return to normal speed. Useful if the game becomes unplayable at maximum stacks.
+</Tip>
+
+## Clones
+
+Clones are additional copies of Rudi that follow you around the world. They appear from Pink power-ups (3 at once), Cyan power-ups (1 at a time), and automatically at level 10+.
+
+**How clones behave:**
+
+- Each clone orbits Rudi at a radius that grows with clone count (`8 + clones.length × 1.8` units).
+- Clones face Rudi at all times and smoothly lerp toward their orbit position.
+- Clones collect treats and power-ups independently, triggering the same score and power-up effects as Rudi.
+- Clone-collected treats play a slightly different beep (lower pitch, sine wave) so you can distinguish them by ear.
+
+**Clone counter:** The top-left HUD shows **"Clones: N"** via `cloneCountDisplay`. Tapping the **Clones** button arms a clear (it turns red); tapping again removes all clones from the scene.
+
+<Note>
+  If you accumulate 10 or more speed stacks while at least one clone is alive, that clone achieves **Maximum Zoomies** — it breaks orbit and launches itself off the map entirely. This happens once per run.
+</Note>
+
+## Endings
+
+Rudi Foodi has two endings, both triggered under specific conditions and both play out as in-engine cinematics that hide the HUD, joystick, and ZOOMIES button.
+
+**Meteor Ending**
+: Touch the golden star (`endingStar`) at any point during gameplay. A giant lava-textured meteor descends from the sky, crashes into the arena, and explodes the entire level into flying debris. After roughly 6 seconds the level advances as if you had cleared it normally. If you are already on level 20, the meteor ending transitions into the win screen instead.
+
+**Fly-Away Ending**
+: Triggered automatically once you complete all 20 levels and your score in the final level reaches **30 treats** (and no other ending is currently active). The camera pulls back, Rudi faces you, then launches upward and off-screen while the message *"Oh no! Rudi got bored!"* fades in. Completing this ending counts as a full game completion and prompts you to submit your time to the leaderboard.
+
+<Note>
+  Both endings check the `meteorEnding` and `flyAwayEnding` flags to avoid triggering simultaneously. The Meteor Ending takes priority if the star is touched before the Fly-Away condition is met.
+</Note>
+
+For a detailed breakdown of both cinematic sequences, see [Endings](/gameplay/endings).

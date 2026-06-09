@@ -1,0 +1,84 @@
+---
+title: "Contributing to Rudi Foodi: Fork, Hack, and Submit"
+sidebarTitle: "Contributing"
+description: "Rudi Foodi is open source and welcomes contributions. Learn how to fork the project, make changes to the single-file codebase, and submit a pull request."
+---
+
+Rudi Foodi is fully open source. Because the entire game is a single HTML file with no build toolchain, the contribution workflow is unusually simple — fork, edit the file, test in browser, open a pull request. There are no dependencies to install, no bundlers to configure, and no CI pipeline to fight. If you can open a file in a text editor and reload a browser tab, you can contribute.
+
+## Getting the Code
+
+<Steps>
+  <Step title="Fork the repository">
+    Head to [github.com/mbeckham4-hub/Rudi-Foodi](https://github.com/mbeckham4-hub/Rudi-Foodi) and click **Fork** to create your own copy of the repo.
+  </Step>
+  <Step title="Clone your fork">
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/Rudi-Foodi.git
+    cd Rudi-Foodi
+    ```
+  </Step>
+  <Step title="Verify the game works">
+    Open `rudi_low_poly_3_d_game 6.html` directly in your browser (no server needed). You should see the Rudi Foodi title screen. Click to start and confirm audio initializes and the first level loads.
+  </Step>
+  <Step title="Edit the file">
+    Open `rudi_low_poly_3_d_game 6.html` in any text editor. The entire game — HTML structure, CSS styles, and JavaScript logic — lives inside this one file.
+  </Step>
+  <Step title="Reload to test">
+    Save your changes, then reload the browser tab. Because there is no build step, your changes are live immediately on every reload.
+  </Step>
+  <Step title="Commit, push, and open a pull request">
+    ```bash
+    git add "rudi_low_poly_3_d_game 6.html"
+    git commit -m "describe your change"
+    git push origin main
+    ```
+    Then open a pull request against the upstream `mbeckham4-hub/Rudi-Foodi` repository from GitHub.
+  </Step>
+</Steps>
+
+<Note>
+  Because there is no build step, there is nothing to install or compile. The full development loop is: edit the file → reload the browser. No Node, no npm, no bundler, no transpiler.
+</Note>
+
+## What to Contribute
+
+<AccordionGroup>
+  <Accordion title="New level themes">
+    Add a new object to the `levelThemes[]` array with your own color palette and a unique `map` identifier. You'll also need a corresponding geometry block inside `makeRoom()`. See the [Adding Levels guide](/dev/adding-levels) for the full walkthrough.
+  </Accordion>
+  <Accordion title="New music themes">
+    Add a new entry to the `musicThemes[]` array. Each entry defines a `chords` array of frequency triplets (bass, pad1, pad2), a `melody` array of frequencies, and a `speed` in milliseconds per beat. The existing 10 entries cycle across 20 levels via modulo, and any new entry you add is picked up automatically.
+  </Accordion>
+  <Accordion title="New power-up types">
+    Power-ups have two parts. First, add a case for your new type string inside `applyPowerUp(type)` — this is where the actual effect logic lives (speed, size, clone creation, etc.). Second, register the new color and type in `powerTypes[]` and add a `makePowerUp(color, type)` call inside `spawnLevel()` so the orb actually appears on the map.
+  </Accordion>
+  <Accordion title="New map geometry layouts">
+    Add a new `if (theme.map === 'yourmap')` block inside `makeRoom(level)`. Use `addRoomMesh()` to place `THREE.BoxGeometry`, `THREE.CylinderGeometry`, `THREE.ConeGeometry`, and `THREE.SphereGeometry` objects. All geometry placed through `addRoomMesh()` automatically receives shadow casting/receiving and is registered in `roomObjects[]` for cleanup on level transition.
+  </Accordion>
+  <Accordion title="Bug fixes and performance improvements">
+    Performance-sensitive areas include the animation loop, clone AI movement, power-up collection checks, and debris particle cleanup. If you spot an `O(n²)` loop or an uncleared `setInterval`, fixes are very welcome.
+  </Accordion>
+  <Accordion title="Mobile UX improvements">
+    Rudi Foodi has touch joystick controls and camera dragging built in via the Pointer Events API. Improvements to virtual joystick feel, HUD button sizing, or mobile viewport handling are great contributions — test on a real device or browser devtools mobile emulation.
+  </Accordion>
+</AccordionGroup>
+
+## Code Style
+
+The codebase uses plain ES6+ JavaScript with no linter, formatter, or type checker. Follow these conventions when writing new code:
+
+- Use `const` for object references that won't be reassigned, and `let` for mutable state variables.
+- Instantiate Three.js objects with `new THREE.*` constructors (e.g. `new THREE.BoxGeometry(...)`, `new THREE.Mesh(...)`).
+- Define helper functions with `function` declarations at the top of the `<script>` block, not as arrow function variables.
+- Do not add external dependencies. Three.js is the only library, and it is loaded from CDN. Keep it that way.
+
+## Testing
+
+There is no automated test suite. Before opening a pull request, manually verify the following in at least **Chrome** and **Firefox**:
+
+- The title screen renders and the game starts on click.
+- Audio initializes without errors in the browser console (the Web Audio API requires a user gesture, which the click provides).
+- All five power-up types work: speed stack (blue), big (yellow), small (red), three clones (rainbow/pink), one clone (flashing cyan/blue).
+- Level transitions trigger correctly when the treat goal is reached, and the new level's geometry, colors, and music all update.
+- The leaderboard saves to `localStorage` and persists across page reloads.

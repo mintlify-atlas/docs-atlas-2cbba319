@@ -1,0 +1,217 @@
+---
+title: "3D Rendering: Three.js Scene Setup in Rudi Foodi"
+sidebarTitle: "Rendering"
+description: "How Rudi Foodi builds its 3D world using Three.js: scene graph, lights, camera, geometry builders, and level room generation."
+---
+
+Rudi Foodi renders everything with Three.js and WebGL. The scene graph, lights, camera, and all geometry are built entirely in JavaScript using Three.js primitives — there are no external 3D model files, no texture atlases, and no shader files. Every object from Rudi's ears to the factory pipes of Level 10 is assembled from raw `BoxGeometry`, `ConeGeometry`, `CylinderGeometry`, and `SphereGeometry` calls at startup.
+
+## Scene Setup
+
+The renderer is created with antialiasing enabled and attached directly to `document.body`:
+
+```js
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+document.body.appendChild(renderer.domElement);
+```
+
+The scene background color and fog are initialized to a sky blue, then overwritten each time `makeRoom(level)` is called with values from the current `levelThemes` entry:
+
+```js
+scene.background = new THREE.Color(theme.sky);
+scene.fog = new THREE.Fog(theme.sky, 180, 850);
+```
+
+Fog start distance (`180`) and end distance (`850`) are fixed across all levels — only the fog color changes to match each sky.
+
+## Lighting
+
+Two lights illuminate the world at all times:
+
+```js
+// Ambient sky/ground light — always on
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x5d8f45, 1.6);
+scene.add(hemiLight);
+
+// Directional sun — enabled or disabled per level
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(90, 160, 80);
+sun.castShadow = true;
+sun.shadow.mapSize.width  = 1024;
+sun.shadow.mapSize.height = 1024;
+sun.shadow.camera.left   = -260;
+sun.shadow.camera.right  = 260;
+sun.shadow.camera.top    = 260;
+sun.shadow.camera.bottom = -260;
+scene.add(sun);
+```
+
+Each `levelThemes` entry carries a boolean `sun` flag. When `makeRoom(level)` runs, it shows or hides the directional light accordingly and compensates the hemisphere intensity to keep dark levels readable:
+
+```js
+sun.visible    = !!theme.sun;
+sun.intensity  = theme.sun ? 2.4 : 0;
+hemiLight.intensity = theme.sun ? 1.35 : 2.2;
+```
+
+Levels like "Lava Islands", "Neon City", and "Void Platforms" have `sun: false` and rely entirely on the hemisphere light for illumination.
+
+## Camera
+
+The camera is a standard perspective camera sized to the window:
+
+```js
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+camera.position.set(0, 14, 19);
+```
+
+Two state variables track the player's camera orbit: `cameraYaw` (horizontal rotation, updated by touch/mouse drag) and `cameraPitch` (vertical angle, clamped so the camera never flips). Every gameplay frame the camera position is recomputed from spherical coordinates and smoothly lerped:
+
+```js
+const camDistance = 20;
+const safePitch   = Math.max(cameraPitch, -1.05);
+const horizontalDistance = Math.cos(safePitch) * camDistance;
+const verticalOffset     = Math.sin(safePitch) * camDistance + 10;
+
+const camX = rudiPos.x - Math.sin(cameraYaw) * horizontalDistance;
+const camZ = rudiPos.z - Math.cos(cameraYaw) * horizontalDistance;
+const camY = Math.max(2.5, verticalOffset);
+
+camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.11);
+camera.lookAt(rudiPos.x, 1.6, rudiPos.z);
+```
+
+Touch drag adjusts `cameraYaw` and `cameraPitch` with sensitivity constants (`0.008` horizontal, `0.006` vertical). The pitch is clamped between `-1.2` and `1.05` radians to prevent the camera from passing through the ground or flipping over Rudi.
+
+## Geometry Builders
+
+Three small helper functions create every piece of geometry in the game. They exist to eliminate boilerplate and ensure shadow casting is always enabled:
+
+```js
+function mat(color, roughness = 0.65) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness,
+    metalness: 0.04,
+    flatShading: false
+  });
+}
+
+function box(w, h, d, color) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d, 8, 8, 8), mat(color));
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function cone(r, h, color, sides = 32) {
+  const mesh = new THREE.Mesh(new THREE.ConeGeometry(r, h, Math.max(24, sides)), mat(color));
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+```
+
+<Note>
+  `mat()` returns `THREE.MeshStandardMaterial` — not `MeshLambertMaterial`. The `roughness` default of `0.65` and `metalness` of `0.04` produce a slightly matte, slightly plastic look that reads well under the hemisphere + sun two-light rig.
+</Note>
+
+`box()` always uses an 8×8×8 segment count on `BoxGeometry`. This is higher than the Three.js default (1×1×1) and produces smoother shadow boundaries on animated geometry like Rudi's body parts.
+
+`cone()` enforces a minimum of 24 sides (`Math.max(24, sides)`). Cone primitives used with a low `sides` value (e.g., `4` for ears, `5` for the tail) intentionally produce angular, low-poly faceted shapes.
+
+## Rudi's Model
+
+`makeRudi()` returns a `THREE.Group` assembled entirely from `box()` and `cone()` calls. No textures are used — color alone distinguishes each part:
+
+| Part | Primitive | Color |
+|---|---|---|
+| Body | `box(2.8, 1.15, 1.25)` | `0xf5f5f2` (off-white) |
+| Side spot | `box(1.15, 0.92, 0.22)` | `0x111111` (black) |
+| Chest | `box(1.1, 0.95, 1.05)` | `0xf5f5f2` |
+| Head | `box(1.25, 1, 1)` | `0x101010` (near-black) |
+| Face stripe | `box(0.28, 0.82, 0.28)` | `0xf8f8f8` (white) |
+| Snout | `box(0.72, 0.42, 0.52)` | `0xf2f2f2` |
+| Nose | `box(0.16, 0.16, 0.2)` | `0x000000` |
+| Ears (×2) | `cone(0.34, 0.95, …, 4)` | `0x0d0d0d` |
+| Tail | `cone(0.18, 0.95, …, 5)` | `0xf5f5f5` |
+| Legs (×4) | `box(0.3, 0.95, 0.3)` | `0xf1f1ef` |
+| Eyes (×2) | `box(0.12, 0.12, 0.06)` | `0xfaf6df` |
+| Pupils (×2) | `box(0.05, 0.05, 0.03)` | `0x111111` |
+
+The ears use `sides = 4` (square cross-section cone) and the tail uses `sides = 5` (pentagonal), giving each a low-poly, almost origami appearance. The whole group is scaled `(1.08, 1.38, 1.08)` to make Rudi slightly tall and wide.
+
+After construction, the game traverses the group once to collect references for animation:
+
+```js
+const rudiParts = { legs: [], ears: [], tail: null, head: null };
+rudi.traverse(part => {
+  if (part.userData.kind === "leg")  rudiParts.legs.push(part);
+  if (part.userData.kind === "ear")  rudiParts.ears.push(part);
+  if (part.userData.kind === "tail") rudiParts.tail = part;
+  if (part.userData.kind === "head") rudiParts.head = part;
+});
+```
+
+Each animated part has its `userData.kind` set at build time (e.g., `leg.userData.kind = "leg"`).
+
+## Room Generation
+
+`makeRoom(level)` is called at the start of every level. It first tears down the current room by removing every mesh that was tracked in the `roomObjects` array:
+
+```js
+function makeRoom(level = 1) {
+  while (roomObjects.length) scene.remove(roomObjects.pop());
+  // ... rebuild
+}
+```
+
+It then reads the matching `levelThemes` entry (wrapping with modulo for levels beyond 20), applies the sky/fog/ground colors, and dispatches to a per-`map` block. All geometry is placed via `addRoomMesh()`:
+
+```js
+function addRoomMesh(geometry, material, position, rotation = [0, 0, 0]) {
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(position[0], position[1], position[2]);
+  mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  roomObjects.push(mesh);
+  return mesh;
+}
+```
+
+Every mesh added through `addRoomMesh` is tracked in `roomObjects[]` so it can be fully cleared on the next level transition.
+
+### Map Types
+
+The game ships with 20 named map types (one per level theme):
+
+| `map` key | Description |
+|---|---|
+| `house` | Four flat walls + furniture-like boxes |
+| `maze` | Rows of sinusoidal wall slabs |
+| `islands` | Scattered cylinders arranged in polar coordinates |
+| `city` | 50 random-height box "buildings" |
+| `hills` | 35 random cone mounds |
+| `fort` | Box towers ringing the perimeter |
+| `temple` | Four concentric rings of cylinder columns |
+| `platforms` | 36 floating box platforms in a spiral |
+| `candy` | Tilted cylinders (candy sticks) |
+| `factory` | Cylinder chimneys + conveyor-belt boxes |
+| `craters` | Sphere bumps scattered across the ground |
+| `ship` | A wide deck box with mast poles and a horizontal spar |
+| `crystal` | Tall random cones pointing upward |
+| `kitchen` | Counter boxes and an oversized appliance block |
+| `arcade` | 30 upright rectangular cabinet-like boxes |
+| `jungle` | Cylinder trunks each topped with a sphere canopy |
+| `desert` | Sand-dune cones |
+| `clouds` | Sphere clusters at varying heights |
+| `pipes` | Horizontal and vertical cylinder pipes crossing the room |
+| `park` | Box "benches" and sphere "bushes" |
+
+The accent color used for many map-type shapes varies by level (`accentMat` cycles through 5 colors keyed on `level % 5`), so re-running a map type at a higher level will use a different highlight color.

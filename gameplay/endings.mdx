@@ -1,0 +1,95 @@
+---
+title: "Endings: Fly-Away and Meteor Sequences Explained"
+sidebarTitle: "Endings"
+description: "Rudi Foodi has two dramatic ending sequences — the Fly-Away ending and the Meteor ending. Learn what triggers each and what happens."
+---
+
+Rudi Foodi features two cinematic event sequences that interrupt normal gameplay and take over the camera: the **Meteor Ending** and the **Fly-Away Ending**. Both are fully scripted with timed phases, animated 3D objects, and a concluding message screen. Neither can fire while the other is already running, and both are cleanly undone by the "Go Back" button which calls `resetGameToMenu()`.
+
+---
+
+## Meteor Ending
+
+The Meteor ending triggers every time Rudi steps onto the golden octahedron **Ending Star** (`THREE.OctahedronGeometry`) that appears somewhere on the map. The star rotates and drifts as you explore — get within **7 units** of it and `triggerMeteorEnding()` fires automatically.
+
+<Steps>
+  <Step title="Trigger">
+    Rudi collides with the Ending Star (`endingStar.position.distanceTo(rudiPos) < 7`). The star is removed from the scene and `triggerMeteorEnding()` is called. The HUD, joystick, and ZOOMIES button are hidden. Scene fog is disabled.
+  </Step>
+  <Step title="Descent (0 → ~7 s)">
+    A massive meteor (`THREE.SphereGeometry(24, 96, 64)`) with a glowing lava texture appears at `y = 260`. It falls toward y = 65 at a rate of **32 units per second**, spinning on both axes. A `THREE.PointLight` at intensity 8 tracks the meteor to cast dramatic lighting. The camera is locked at `(0, 70, 280)` looking up at the incoming rock.
+  </Step>
+  <Step title="Impact (meteor.position.y ≤ 65)">
+    The meteor becomes invisible and `explodeRoom()` fires. Every visible mesh in the scene (except the meteor core and Rudi's body parts) is turned invisible and replaced by debris chunks launched with `addDebris()`. An additional 90 extra debris pieces scatter outward from ground zero. A low-frequency sawtooth beep plays. The `#explosionOverlay` div flashes white.
+  </Step>
+  <Step title="Aftermath (meteorTimer > 6 s)">
+    Once `meteorTimer` exceeds **6 seconds**, `advanceLevelAfterMeteor()` is called. If `currentLevel < MAX_LEVELS` (20), the game advances to the next level: debris is cleared, Rudi is repositioned to the origin, all state is reset, and `spawnLevel()` runs the new map. If already at level 20, the Fly-Away ending is triggered instead.
+  </Step>
+</Steps>
+
+<Note>
+  The Ending Star repositions to a new random location each time a level advances (via `moveEndingStar()`). Finding it is optional — you can complete a level purely by collecting enough treats — but touching it immediately skips to the dramatic Meteor sequence and the next level.
+</Note>
+
+---
+
+## Fly-Away Ending
+
+The Fly-Away ending triggers when `currentLevel >= MAX_LEVELS` (20), `score >= 30`, and neither ending is already running.
+
+```js
+if (currentLevel >= MAX_LEVELS && score >= 30 && !flyAwayEnding && !meteorEnding)
+  triggerFlyAwayEnding();
+```
+
+<Steps>
+  <Step title="Trigger">
+    `triggerFlyAwayEnding()` is called. The HUD, joystick, and ZOOMIES button are hidden. `velocity` is zeroed out. The camera jumps to a position 14 units to Rudi's side and looks at him.
+  </Step>
+  <Step title="Close-Up Pan (0 → 1.2 s)">
+    The camera smoothly lerps to a position slightly closer to Rudi — `(rudiPos.x + 12, 6.2, rudiPos.z + 12)` — while continuing to look at him. A soft triangle beep plays at 440 Hz.
+  </Step>
+  <Step title="Rudi Turns (1.2 → 2.2 s)">
+    Rudi rotates to face the camera using a smooth `lerp` on `rotation.y`. The camera continues looking at him.
+  </Step>
+  <Step title="Launch (2.2 s → 4.7 s)">
+    Rudi launches away: `position.y` increases at **18 units/s**, `position.x` at **24 units/s**, and `position.z` decreases at **30 units/s**. The camera tracks him by looking at his position each frame.
+  </Step>
+  <Step title="End Screen (flyAwayTimer > 4.7 s)">
+    `showEnding("🐶 Oh no! Rudi got bored!", currentLevel >= MAX_LEVELS)` is called. The `#endText` overlay becomes visible displaying the message. If the player has completed all 20 levels (`completedGame = true`), the final run time is recorded and the **name-entry leaderboard prompt** (`#nameEntryPanel`) appears.
+  </Step>
+</Steps>
+
+<Note>
+  The "🐶 Oh no! Rudi got bored!" message fires regardless of whether the game was completed. The `completedGame` flag is `true` only when `currentLevel >= MAX_LEVELS` — if the fly-away fires on an earlier level through some edge case, the leaderboard prompt is skipped.
+</Note>
+
+---
+
+## End Screen
+
+When either ending concludes, the `#endText` overlay is shown (`display: flex`) with the ending message inside `#endingMessage` and a **Go Back** button (`#goBackButton`).
+
+| Element             | ID                  | Content / Behavior                                      |
+| ------------------- | ------------------- | ------------------------------------------------------- |
+| Ending overlay      | `#endText`          | Full-screen semi-transparent black overlay              |
+| Message text        | `#endingMessage`    | `"🐶 Oh no! Rudi got bored!"` or `"🐶 Good job, you won!"` |
+| Go Back button      | `#goBackButton`     | Calls `resetGameToMenu()` and returns to the title screen |
+
+---
+
+## Game Reset
+
+`resetGameToMenu()` performs a complete state wipe. Every value is returned to its initial condition:
+
+- `score`, `boost`, `speedStacks`, `speedMultiplier`, `sizeMultiplier` → reset to defaults
+- `zoomLocked`, `rudySpinMode`, `rudyDanceMode`, `cloneFlyAwayTriggered` → `false`
+- `flyAwayEnding`, `flyAwayTimer`, `meteorEnding`, `meteorTimer`, `meteorExploded`, `explosionFlash` → cleared
+- All debris objects removed from the scene
+- All clones removed from the scene
+- `powerAnim` → `null`, `currentPowerForm` → `"normal"`
+- Rudi repositioned to the origin, rotation zeroed, scale reset to `(1.08, 1.38, 1.08)`
+- Camera reset to `(0, 14, 19)` looking at `(0, 1.6, 0)`, `cameraYaw = 0`, `cameraPitch = 0.35`
+- The `#endText` overlay is hidden; the `#titleScreen` is shown
+- Music is stopped via `stopMusic()`
+- `gameStarted` is set to `false`

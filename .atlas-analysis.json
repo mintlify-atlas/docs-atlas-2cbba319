@@ -1,0 +1,95 @@
+{
+  "projectType": "general",
+  "projectName": "Rudi Foodi",
+  "projectDescription": "An indie, open-source browser-based 3D dog game built with Three.js and Web Audio API where you play as Rudi the dog collecting treats across 20 unique worlds.",
+  "theme": "almond",
+  "primaryColor": "#79d86b",
+  "lightColor": "#b7ecff",
+  "darkColor": "#4c2c17",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Game Guide",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "introduction",
+              "how-to-play"
+            ]
+          },
+          {
+            "group": "Gameplay",
+            "pages": [
+              "gameplay/controls",
+              "gameplay/power-ups",
+              "gameplay/scoring",
+              "gameplay/endings"
+            ]
+          },
+          {
+            "group": "Worlds",
+            "pages": [
+              "worlds/overview",
+              "worlds/level-themes"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developer Guide",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "dev/setup",
+              "dev/project-structure"
+            ]
+          },
+          {
+            "group": "Code Systems",
+            "pages": [
+              "dev/rendering",
+              "dev/game-loop",
+              "dev/audio",
+              "dev/leaderboard"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "dev/contributing",
+              "dev/adding-levels"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "20 unique themed worlds (bedroom, lava islands, neon city, candy forest, pirate deck, etc.)",
+    "Low-poly 3D dog character (Rudi) built entirely with Three.js geometry",
+    "5 power-up types: speed stack (blue), size up (yellow), size down (red), multi-clone (rainbow), single clone (cyan)",
+    "Zoomies mode with toggleable speed burst and speed stacks",
+    "Clone AI system that mirrors Rudi's movement",
+    "Unique procedurally-played Web Audio API music per level (10 music themes cycling across 20 levels)",
+    "Touch joystick controls for mobile/tablet play",
+    "Camera drag controls for orbit around Rudi",
+    "Two ending sequences: fly-away ending and meteor ending",
+    "Local and optional Firebase-backed global leaderboard with completion time tracking"
+  ],
+  "publicApiSurface": [
+    "makeRoom(level) — generates level geometry based on levelThemes array",
+    "spawnLevel(level) — spawns treats, power-ups, and room for a given level",
+    "applyPowerUp(type) — applies a power-up effect ('blue', 'yellow', 'red', 'rainbow', 'cyan')",
+    "collectTreat(t, collectedByClone) — handles treat collection logic and scoring",
+    "createClone() — spawns a clone of Rudi that follows AI movement",
+    "triggerFlyAwayEnding() — initiates the fly-away ending sequence",
+    "triggerMeteorEnding() — initiates the meteor ending sequence",
+    "applyLevelMusic(level) — switches background music based on level index",
+    "openLeaderboard() — fetches and renders the leaderboard panel",
+    "resetGameToMenu() — resets all game state and returns to title screen",
+    "levelThemes[] — array of 20 level theme objects with floor/wall/sky colors and map type",
+    "musicThemes[] — array of 10 music theme objects with chord progressions and melody"
+  ]
+}

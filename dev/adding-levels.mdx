@@ -1,0 +1,124 @@
+---
+title: "Add a New Level to Rudi Foodi"
+sidebarTitle: "Adding Levels"
+description: "Step-by-step guide to adding a new themed world to Rudi Foodi by extending the levelThemes array and adding map geometry in makeRoom()."
+---
+
+Adding a new level to Rudi Foodi requires exactly two things: a new entry in the `levelThemes` array that defines the color palette and map type, and a corresponding geometry block inside `makeRoom()` that builds the actual 3D room layout. Once both are in place, you can optionally bump `MAX_LEVELS` to extend the game and add a custom music theme. No other files or configuration need to change.
+
+## Step 1 — Add a Theme Entry
+
+<Steps>
+  <Step title="Open the file in a text editor">
+    Open `rudi_low_poly_3_d_game 6.html` in any text editor. The entire game lives in this single file.
+  </Step>
+  <Step title="Find the levelThemes array">
+    Search for `const levelThemes` (around line 629). You'll see an array of 20 objects, one per level, each defining a name, color palette, map identifier, and lighting flag.
+  </Step>
+  <Step title="Add your new theme object">
+    Append a new object at the end of the array, before the closing `];`. Use this shape:
+
+    ```js
+    {
+      name: "My New World",
+      floor: 0x336699,  // ground color
+      wall: 0x4488bb,   // wall/structure color
+      sky: 0x99ccff,    // background sky color
+      wood: 0x775533,   // secondary structure color
+      dark: 0x223344,   // dark accent color
+      map: "mymap",     // unique map identifier — must match the if-block you add in makeRoom()
+      sun: true         // true = directional light (shadows); false = hemisphere light only
+    }
+    ```
+
+    All six color values are hex integers. The `map` string must be unique across all entries in the array — it is the key that links this theme to its geometry block in `makeRoom()`.
+  </Step>
+</Steps>
+
+## Step 2 — Add Map Geometry
+
+Find the `makeRoom(level)` function by searching for `function makeRoom`. Inside it you'll see a series of `if (theme.map === "...")` blocks, one per existing level. Add your own block at the end of that chain:
+
+```js
+if (theme.map === "mymap") {
+  // Boundary walls — keep the playable area within ±360 units on X and Z
+  addRoomMesh(new THREE.BoxGeometry(720, 45, 1), wallMat, [0, 22.5, 360]);
+  addRoomMesh(new THREE.BoxGeometry(720, 45, 1), wallMat, [0, 22.5, -360]);
+  addRoomMesh(new THREE.BoxGeometry(1, 45, 720), wallMat, [-360, 22.5, 0]);
+  addRoomMesh(new THREE.BoxGeometry(1, 45, 720), wallMat, [360, 22.5, 0]);
+
+  // Custom obstacles, platforms, and decoration
+  addRoomMesh(new THREE.BoxGeometry(40, 8, 40), woodMat, [100, 4, -80]);
+}
+```
+
+`addRoomMesh(geometry, material, position, rotation?)` sets `castShadow` and `receiveShadow` on the mesh, adds it to the scene, and registers it in `roomObjects[]` so it is automatically cleaned up when the next level loads.
+
+## Step 3 — Adjust MAX\_LEVELS
+
+Find `const MAX_LEVELS = 20` (near the top of the script block) and increment it to match your new total level count:
+
+```js
+const MAX_LEVELS = 21; // was 20
+```
+
+Both the music theme and level theme arrays are indexed with `(level - 1) % array.length`, so they wrap around automatically regardless of `MAX_LEVELS`. You only need to update `MAX_LEVELS` to make the game actually let players reach your new level rather than triggering the fly-away ending at the old cap.
+
+## Available Materials
+
+Inside `makeRoom()`, four material variables are already created from the current theme before any of the `if` blocks run. Use them freely in your geometry block:
+
+| Variable | Source color | Purpose |
+|---|---|---|
+| `wallMat` | `theme.wall` | Primary structural surfaces |
+| `woodMat` | `theme.wood` | Secondary structures, floors, trim |
+| `darkWood` | `theme.dark` | Dark accents, shadows, outlines |
+| `accentMat` | Rotates through 5 colors via `level % 5` | Highlight geometry, obstacles |
+
+## Available Geometry
+
+Use any of these Three.js geometry constructors. All geometry must go through `addRoomMesh()` — do not call `scene.add()` directly, or the objects won't be cleaned up on level transition.
+
+- `THREE.BoxGeometry(width, height, depth)` — boxes, walls, platforms, crates
+- `THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments)` — columns, pipes, barrels
+- `THREE.ConeGeometry(radius, height, segments)` — spikes, hills, trees
+- `THREE.SphereGeometry(radius, widthSegments, heightSegments)` — boulders, bubbles, orbs
+
+The optional fourth argument to `addRoomMesh()` is a rotation array `[rx, ry, rz]` in radians. For example, `[Math.PI / 2, 0, 0]` lays a cylinder on its side.
+
+## Tips
+
+<Tip>
+  Keep all playable geometry within ±360 units on both the X and Z axes. The ground plane is 720×720 units and the fog begins fading in at 180 units — objects placed beyond ±360 will be invisible and unreachable.
+</Tip>
+
+<Tip>
+  Add some vertical obstacles (boxes with `height > 2`) to create interesting movement. Flat levels with nothing to navigate around feel empty, especially at higher speed stacks when Rudi moves fast.
+</Tip>
+
+<Tip>
+  Test that treats can actually be reached. Treats are placed via `randomPos(600)` which scatters them across the full ground plane. If your geometry includes solid walls that slice through the middle of the play area, some treats may be permanently inaccessible and the level goal will be impossible to complete.
+</Tip>
+
+<Tip>
+  If you set `sun: false`, directional-light shadows won't be visible. Compensate with more `accentMat` geometry — the five rotating accent colors (red, blue, yellow, magenta, cyan) add contrast and visual interest without relying on shadow depth cues.
+</Tip>
+
+## Optional — Add a Music Theme
+
+The `musicThemes` array has 10 entries that cycle across all 20 levels via `(level - 1) % musicThemes.length`. To give your new level its own sound, add a new entry to `musicThemes` (search for `const musicThemes`):
+
+```js
+{
+  chords: [
+    [55, 146.83, 196],
+    [65.41, 174.61, 220],
+    [73.42, 196, 246.94],
+    [49, 130.81, 174.61]
+  ],
+  melody: [220, 246.94, 261.63, 293.66, 261.63, 246.94, 220, 196],
+  speed: 520  // milliseconds per beat — lower = faster
+}
+```
+
+Each chord is a frequency triplet `[bass, pad1, pad2]` in Hz. The `melody` array is a sequence of frequencies played over the chord progression. The `speed` value controls tempo. Once added, the new theme is picked up automatically by the modulo index — no other changes needed.

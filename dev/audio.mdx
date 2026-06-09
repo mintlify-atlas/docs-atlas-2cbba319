@@ -1,0 +1,184 @@
+---
+title: "Audio System: Web Audio API Music and Sound Effects"
+sidebarTitle: "Audio"
+description: "Rudi Foodi generates all music and sound effects procedurally using the Web Audio API. Learn how the chord engine, melody, and beep functions work."
+---
+
+Rudi Foodi has no audio files — all music and sound effects are synthesized in real time using the Web Audio API's oscillators and gain nodes. The entire audio engine lives in a single `audio` state object, four persistent oscillator nodes, and a handful of functions that schedule frequency transitions and fire one-shot beeps. The result is a surprisingly musical score that adapts to the current level and Zoomies state without loading a single `.mp3`.
+
+## The `audio` Object
+
+All audio state is held in one plain object defined near the top of the script:
+
+```js
+const audio = {
+  ctx:             null,   // AudioContext, created on first user gesture
+  ready:           false,  // true after initAudio() runs
+  musicGain:       null,   // GainNode controlling music volume
+  bassOsc:         null,   // Persistent sine oscillator (bass root note)
+  padOsc1:         null,   // Persistent triangle oscillator (chord mid)
+  padOsc2:         null,   // Persistent triangle oscillator (chord top)
+  melodyOsc:       null,   // Persistent square oscillator (melody lead)
+  musicInterval:   null,   // setInterval ID for chord cycling
+  melodyInterval:  null,   // setTimeout ID for melody note sequencing
+  currentTheme:    -1      // Index into musicThemes, -1 = stopped
+};
+```
+
+There is no `fxGain` node — sound effects connect directly to `ctx.destination` via per-beep gain nodes that are created and discarded on every call to `beep()`.
+
+## `initAudio()`
+
+Browser autoplay policy forbids creating an `AudioContext` before a user gesture. The game defers initialization with a one-time `pointerdown` listener:
+
+```js
+window.addEventListener("pointerdown", initAudio, { once: true });
+```
+
+`initAudio()` creates the context, builds the four persistent oscillators, connects them all through `musicGain` to `ctx.destination`, and starts them running silently at near-zero gain:
+
+```js
+function initAudio() {
+  if (audio.ready) return;
+  audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  audio.musicGain = audio.ctx.createGain();
+  audio.musicGain.gain.value = 0.00001;
+  audio.musicGain.connect(audio.ctx.destination);
+
+  audio.bassOsc   = audio.ctx.createOscillator(); // type: "sine"
+  audio.padOsc1   = audio.ctx.createOscillator(); // type: "triangle"
+  audio.padOsc2   = audio.ctx.createOscillator(); // type: "triangle"
+  audio.melodyOsc = audio.ctx.createOscillator(); // type: "square"
+
+  // ... set types, initial frequencies, connect to musicGain, start all
+  audio.ready = true;
+}
+```
+
+The four oscillators run continuously for the entire game session. Pitch changes happen through `setTargetAtTime()` frequency ramps rather than start/stop cycles, which avoids click artifacts.
+
+## Music Themes
+
+The `musicThemes` array contains 10 entries. Each entry describes a complete musical environment for a pair of levels:
+
+```js
+const musicThemes = [
+  {
+    chords: [
+      [55, 146.83, 196],       // chord 0: A1 – D3 – G3
+      [65.41, 174.61, 220],    // chord 1: C2 – F3 – A3
+      [73.42, 196, 246.94],    // chord 2: D2 – G3 – B3
+      [49, 130.81, 174.61]     // chord 3: G1 – C3 – F3
+    ],
+    melody: [220, 246.94, 261.63, 293.66, 261.63, 246.94, 220, 196],
+    speed:  520   // ms between melody note steps
+  },
+  // ... 9 more themes
+];
+```
+
+Each chord is an array of three frequencies in Hz — bass root, pad mid, pad top — fed to the three corresponding oscillators. The melody is an 8-note sequence that loops. `speed` controls the tempo in milliseconds between melody steps; faster themes (e.g., `250` ms) feel urgent and energetic, slower ones (e.g., `700` ms) feel atmospheric.
+
+## `applyLevelMusic(level)`
+
+`applyLevelMusic` is called by `spawnLevel` whenever a new level begins. It selects the theme by level index (wrapping every 10 levels), checks if the theme is already playing to avoid unnecessary restarts, then sets up two independent timers:
+
+```js
+function applyLevelMusic(level) {
+  if (!audio.ready) return;
+  const themeIndex = (level - 1) % musicThemes.length;
+  if (audio.currentTheme === themeIndex) return;
+  audio.currentTheme = themeIndex;
+  audio.musicGain.gain.setTargetAtTime(0.022, audio.ctx.currentTime, 0.08);
+
+  if (audio.musicInterval) clearInterval(audio.musicInterval);
+  if (audio.melodyInterval) clearInterval(audio.melodyInterval);
+
+  const data = musicThemes[themeIndex];
+  let chordIndex = 0, melodyIndex = 0;
+
+  // Chord cycle: setInterval at 2400ms
+  audio.musicInterval = setInterval(() => {
+    const chord = data.chords[chordIndex % data.chords.length];
+    chordIndex++;
+    audio.bassOsc.frequency.setTargetAtTime(chord[0], audio.ctx.currentTime, 0.5);
+    audio.padOsc1.frequency.setTargetAtTime(chord[1], audio.ctx.currentTime, 0.5);
+    audio.padOsc2.frequency.setTargetAtTime(chord[2], audio.ctx.currentTime, 0.5);
+  }, 2400);
+
+  // Melody: recursive setTimeout, tempo-aware
+  function tickMelody() {
+    if (audio.currentTheme !== themeIndex) return;
+    const note = data.melody[melodyIndex % data.melody.length];
+    melodyIndex++;
+    audio.melodyOsc.frequency.setTargetAtTime(note, audio.ctx.currentTime, 0.08);
+    audio.melodyInterval = setTimeout(tickMelody, zoomLocked ? data.speed * 0.48 : data.speed);
+  }
+  tickMelody();
+}
+```
+
+<Tip>
+  When Zoomies is active, the melody timer fires at `data.speed * 0.48` — slightly more than double speed. This creates an audible tempo surge that reinforces the frantic energy of a full-speed run.
+</Tip>
+
+The chord oscillator uses a `setTargetAtTime` time constant of `0.5` seconds, which produces a slow, smooth pitch glide between chords. The melody oscillator uses `0.08` seconds — a much faster attack — giving the lead a plucky, articulated feel.
+
+## `beep(freq, duration, type, volume)`
+
+Sound effects use short-lived one-shot oscillator → gain pairs that connect directly to `ctx.destination`:
+
+```js
+function beep(freq, duration, type, volume) {
+  if (!audio.ready) return;
+  const osc  = audio.ctx.createOscillator();
+  const gain = audio.ctx.createGain();
+
+  osc.type = type || "sine";
+  osc.frequency.value = freq || 440;
+  gain.gain.value = volume || 0.06;
+
+  osc.connect(gain);
+  gain.connect(audio.ctx.destination);
+
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.001, audio.ctx.currentTime + (duration || 0.1));
+  osc.stop(audio.ctx.currentTime + (duration || 0.1));
+}
+```
+
+The exponential ramp to near-zero prevents the click artifact that would occur if the oscillator stopped at a non-zero amplitude. After `osc.stop()`, the browser garbage-collects both nodes automatically.
+
+### Sound Effect Reference
+
+| Event | `freq` | `duration` | `type` | `volume` |
+|---|---|---|---|---|
+| Treat collected by Rudi | `340` | `0.08` | `"triangle"` | `0.05` |
+| Treat collected by clone | `190` | `0.12` | `"sine"` | `0.04` |
+| Game start | `330` | `0.08` | `"triangle"` | `0.08` |
+| Zoomies on | `140` | `0.08` | `"triangle"` | `0.05` |
+| Zoomies off | `90` | `0.08` | `"triangle"` | `0.05` |
+| Fly-away start | `440` | `0.2` | `"triangle"` | `0.08` |
+| Meteor incoming | `80` | `1.4` | `"sawtooth"` | `0.12` |
+| Explosion | `18` | `2.8` | `"sawtooth"` | `0.24` |
+
+## `stopMusic()`
+
+`stopMusic()` clears both timers, resets `currentTheme`, and ramps `musicGain` to near-zero with a fast exponential decay:
+
+```js
+function stopMusic() {
+  if (!audio.ready) return;
+  if (audio.musicInterval) clearInterval(audio.musicInterval);
+  if (audio.melodyInterval) clearInterval(audio.melodyInterval);
+  audio.musicInterval = null;
+  audio.melodyInterval = null;
+  audio.currentTheme = -1;
+  audio.musicGain.gain.setTargetAtTime(0.00001, audio.ctx.currentTime, 0.04);
+}
+```
+
+The gain ramp to `0.00001` (rather than `0`) is required because `exponentialRampToValueAtTime` cannot target `0` — zero is not representable on an exponential curve. The time constant `0.04` produces a fast but audibly smooth fade-out.
+
+`stopMusic()` is called when the player returns to the main menu via `resetGameToMenu()`.

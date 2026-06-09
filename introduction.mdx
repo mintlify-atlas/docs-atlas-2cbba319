@@ -1,0 +1,74 @@
+---
+title: "Rudi Foodi: Treats, Chaos, and a Very Real Dog"
+sidebarTitle: "Introduction"
+description: "Rudi Foodi is an open-source browser 3D game starring Rudi the dog. Learn the story, tech stack, and what makes it tick."
+---
+
+Rudi Foodi began as a silly prototype — Beckham Miller wanted to make a small browser game featuring his real-life dog, Rudi. The original plan was a single room, a few drifting treats, and a ridiculous low-poly dog. But every update got weirder. Zoomies arrived first, then cloning, power-ups, size modes, rotating levels, dancing, meteors, and flying debris. Bugs were so entertaining that Beckham folded them directly into the game's story. What started as a joke ballooned into a 20-level browser game spanning pirate ships, lava islands, neon cities, floating cloud worlds, candy forests, factories, caverns, and an enormous final dog park — each world backed by its own hand-crafted music track. Rudi Foodi is, as the credits put it, "an inside joke driven by the power of treats, zoomies, friendship, and madness."
+
+## What You're Playing
+
+Rudi Foodi is a 3D collect-a-thon played entirely in a web browser. You guide Rudi — a low-poly white-and-black dog modelled after the real animal — across 20 themed worlds. The core loop is simple:
+
+- **Collect treats** scattered across the world to fill your level's treat goal.
+- **Grab power-ups** that change your size, speed, or spawn clones.
+- **Survive the chaos** — clones collect treats independently, speed stacks accumulate, and occasionally a very large meteor shows up.
+- **Reach the treat goal** to advance to the next level.
+
+After all 20 levels one of two dramatic endings plays out, depending on how the run unfolds.
+
+## Tech Stack
+
+Rudi Foodi ships as a **single HTML file** with no build step, no bundler, and no framework. Every system — 3D graphics, audio, input, UI, leaderboard — is wired together in plain JavaScript.
+
+| Technology | Role in the game |
+|---|---|
+| **HTML** | Page structure, HUD elements, title screen, panels, and overlays |
+| **CSS** | UI layout, HUD styling, title screen, menus, joystick, and ZOOMIES button |
+| **JavaScript** | All gameplay logic: movement, collision, power-ups, clones, endings, leaderboard |
+| **Three.js** | 3D scene graph, geometry construction (boxes, cones, spheres, cylinders), lighting, shadows, and animation |
+| **WebGL** | GPU rendering via Three.js's `WebGLRenderer` with PCF soft shadows |
+| **Web Audio API** | Procedural music (oscillators per level) and all sound effects |
+| **Pointer Events API** | Mobile touch controls — virtual joystick and camera drag |
+| **Canvas API** | Procedurally generated lava texture painted onto the meteor |
+
+<Note>
+  The entire game — all 1,969 lines — lives in one file: `rudi_low_poly_3_d_game 6.html`. No npm, no bundler, no external assets beyond Three.js and Firebase loaded from CDN.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="20 Unique Levels" icon="map">
+    Every level has its own themed world: Clean Bedroom, Lava Islands, Neon City, Pirate Deck, Crystal Cave, Cloud Steps, Final Dog Park, and 13 more — each with a unique colour palette, geometry layout, and sky.
+  </Card>
+  <Card title="5 Power-Up Types" icon="bolt">
+    Blue (speed stack), Yellow (big Rudi), Red (small Rudi), Pink (spawn 3 clones), and Cyan (spawn 1 clone). Each triggers a polished squash-and-stretch animation on Rudi.
+  </Card>
+  <Card title="Clone AI" icon="copy">
+    Clones orbit Rudi, mirror movement, and collect treats on their own. Accumulate enough speed stacks and one clone achieves Maximum Zoomies and blasts off into the void.
+  </Card>
+  <Card title="Zoomies Mode" icon="gauge-high">
+    Tap the ZOOMIES button to toggle a speed burst that drains a boost meter. Blue power-up stacks permanently raise Zoomies top speed. The HUD shows your current stack count at all times.
+  </Card>
+  <Card title="Unique Music Per Level" icon="music">
+    Each level plays a distinct procedural music theme built from oscillators (bass sine, pad triangles, melody square). The melody tempo even speeds up when Zoomies mode is active.
+  </Card>
+  <Card title="Touch & Mobile Controls" icon="mobile">
+    A floating virtual joystick (bottom-left) handles movement. Drag anywhere on screen to orbit the camera. All input uses the Pointer Events API, so the game runs on phones and tablets without modification.
+  </Card>
+  <Card title="Two Dramatic Endings" icon="flag-checkered">
+    The **Meteor Ending** can strike at any level (triggered by the golden star collectible). The **Fly-Away Ending** triggers after completing all 20 levels with a score of 30 or more. Both play out as in-engine cinematics.
+  </Card>
+  <Card title="Local & Global Leaderboard" icon="trophy">
+    Finishing the game records your completion time. Scores are submitted to a Firebase Firestore global leaderboard, with a `localStorage` fallback for offline play. The top 20 times are shown ranked by fastest completion.
+  </Card>
+</CardGroup>
+
+## Open Source
+
+Rudi Foodi is fully open source. The entire codebase — one HTML file — is available on GitHub. Fork it, reskin it, add a level, or just read through the chaos.
+
+<Card title="Rudi Foodi on GitHub" icon="github" href="https://github.com/mbeckham4-hub/Rudi-Foodi">
+  View the source code, file an issue, or submit a pull request at `mbeckham4-hub/Rudi-Foodi`.
+</Card>

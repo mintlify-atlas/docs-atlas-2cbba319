@@ -1,0 +1,195 @@
+---
+title: "Leaderboard: Local Storage and Firebase Integration"
+sidebarTitle: "Leaderboard"
+description: "Rudi Foodi supports both a localStorage leaderboard for local high scores and an optional Firebase Firestore global leaderboard. Learn how to configure and extend each."
+---
+
+Rudi Foodi stores completion times in two places — a `localStorage` leaderboard for local high scores, and an optional Firebase Firestore global leaderboard that activates automatically when a real Firebase config is present. The same UI and score-entry flow handles both backends; the only difference is whether scores are written to a local JSON string or to a Firestore collection.
+
+## Local Leaderboard
+
+Local scores are persisted under a versioned `localStorage` key so that future format changes can be detected without conflicting with stale data:
+
+```js
+const LEADERBOARD_KEY = "rudiFoodiLeaderboardV1";
+```
+
+Each entry is a plain object:
+
+```js
+{ username: string, usernameLower: string, time: number, date: number }
+```
+
+- `time` — completion time in milliseconds, the primary sort key
+- `usernameLower` — lowercase copy used for duplicate-username checks
+- `date` — Unix timestamp of when the score was recorded
+
+### `saveLeaderboard(entries)`
+
+```js
+function saveLeaderboard(entries) {
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, 20)));
+}
+```
+
+The array is capped at 20 entries before serialization. Callers are responsible for sorting before passing the array here.
+
+### `getLeaderboard()`
+
+`getLeaderboard()` is `async` because it may need to await a Firestore `get()` call. When the global leaderboard is enabled it fetches from Firestore directly; otherwise it reads from `localStorage`:
+
+```js
+async function getLeaderboard() {
+  if (GLOBAL_LEADERBOARD_ENABLED && globalDb) {
+    const snapshot = await globalDb
+      .collection("leaderboard")
+      .orderBy("time", "asc")
+      .limit(20)
+      .get();
+    return snapshot.docs.map(doc => doc.data());
+  }
+
+  try {
+    return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+```
+
+### `formatTime(ms)`
+
+Completion times are displayed in `M:SS` format:
+
+```js
+function formatTime(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+```
+
+A time of `154500` ms renders as `"2:34"`. The function discards sub-second precision when rendering, though the raw millisecond value is stored for accurate sorting.
+
+### `openLeaderboard()`
+
+```js
+function openLeaderboard() {
+  renderLeaderboard();
+  leaderboardPanel.style.display = "flex";
+}
+```
+
+`renderLeaderboard()` awaits `getLeaderboard()`, sorts the results ascending by `time`, and populates `#leaderboardList` with `<li>` elements formatted as `"username — M:SS"`.
+
+## Global Leaderboard (Firebase)
+
+The global leaderboard uses the Firebase Firestore compat SDK (v10.12.5), loaded via `<script>` tags from the Google CDN.
+
+### Configuration
+
+The `firebaseConfig` object sits near the top of the script. Replace every placeholder value with your project's credentials from the Firebase Console:
+
+```js
+const firebaseConfig = {
+  apiKey:            "PASTE_YOUR_API_KEY",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN",
+  projectId:         "PASTE_YOUR_PROJECT_ID",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
+  appId:             "PASTE_YOUR_APP_ID",
+  measurementId:     "PASTE_YOUR_MEASUREMENT_ID"
+};
+```
+
+### The Enable Flag
+
+The global leaderboard switches itself on or off based on whether the `apiKey` field still contains the placeholder string:
+
+```js
+const GLOBAL_LEADERBOARD_ENABLED = !firebaseConfig.apiKey.includes("PASTE_");
+```
+
+When `GLOBAL_LEADERBOARD_ENABLED` is `true` and the `firebase` global is available (i.e., the CDN scripts loaded), the app is initialized and `globalDb` is set:
+
+```js
+if (GLOBAL_LEADERBOARD_ENABLED && window.firebase) {
+  firebase.initializeApp(firebaseConfig);
+  globalDb = firebase.firestore();
+}
+```
+
+If either condition fails — no real key, or the CDN failed to load — `globalDb` remains `null` and every leaderboard read/write falls back to `localStorage` silently.
+
+### Writing a Score
+
+`saveScoreOnlineOrLocal(username, time)` writes to Firestore when enabled:
+
+```js
+async function saveScoreOnlineOrLocal(username, time) {
+  if (GLOBAL_LEADERBOARD_ENABLED && globalDb) {
+    await globalDb.collection("leaderboard").add({
+      username,
+      usernameLower: username.toLowerCase(),
+      time,
+      date: Date.now()
+    });
+    return;
+  }
+  // ... localStorage fallback
+}
+```
+
+Each document is added to a `"leaderboard"` collection with `addDoc()` (compat API: `.add()`). Documents are never updated — every submission creates a new document, so the same player can appear multiple times on the global board if they complete the game more than once.
+
+<Warning>
+  The `firebaseConfig` object is embedded directly in client-side JavaScript and is visible to anyone who views the page source. This is normal for Firebase web apps, but you **must** configure Firestore Security Rules to prevent abuse. At minimum, restrict writes to valid score submissions and block reads that could enumerate all usernames. See the [Firebase security rules documentation](https://firebase.google.com/docs/firestore/security/get-started) before deploying with a real API key.
+</Warning>
+
+### Recommended Firestore Security Rules
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leaderboard/{doc} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['username','usernameLower','time','date'])
+                   && request.resource.data.time is number
+                   && request.resource.data.time > 0
+                   && request.resource.data.username is string
+                   && request.resource.data.username.size() > 0
+                   && request.resource.data.username.size() <= 18;
+      allow update, delete: if false;
+    }
+  }
+}
+```
+
+## Score Entry Flow
+
+<Steps>
+  <Step title="Game completes">
+    The player reaches Level 20 and collects 30 treats, triggering the fly-away ending. `showEnding("🐶 Good job, you won!", true)` is called.
+  </Step>
+  <Step title="Capture completion time">
+    Inside `showEnding`, when `completedGame` is `true`, the elapsed time is computed: `const completedTime = performance.now() - gameStartTime`. This is stored in `finalCompletionTime` and passed to `askForLeaderboardName(completedTime)`.
+  </Step>
+  <Step title="Name entry panel appears">
+    `askForLeaderboardName(timeMs)` sets `finalTimeText` to display the formatted time, clears any previous input, and shows `#nameEntryPanel`. The username input receives focus after a 50 ms delay to ensure the panel is visible.
+  </Step>
+  <Step title="Player enters a username">
+    The `#usernameInput` accepts up to 18 characters (`maxlength="18"`). The `#saveScoreButton` click handler calls `saveFinalScore()`.
+  </Step>
+  <Step title="Validation">
+    `saveFinalScore()` trims the input and rejects it if empty or if the lowercase username already exists in the current leaderboard. An error message appears in `#nameEntryError` on failure.
+  </Step>
+  <Step title="Save and display">
+    On success, `saveScoreOnlineOrLocal(username, finalCompletionTime)` writes to Firestore (or `localStorage`). The name-entry panel is hidden and `openLeaderboard()` is called to show the final sorted board.
+  </Step>
+</Steps>
+
+### Skipping Score Entry
+
+The `#closeNameEntryButton` ("Skip") hides `#nameEntryPanel` without saving anything. `finalCompletionTime` is still set, so if the player opens the leaderboard manually later from the title screen, their un-submitted time is not re-offered.

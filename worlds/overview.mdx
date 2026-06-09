@@ -1,0 +1,80 @@
+---
+title: "Worlds Overview: 20 Levels of Chaos"
+sidebarTitle: "Overview"
+description: "Rudi Foodi features 20 unique themed worlds, from a Clean Bedroom to the Final Dog Park, each with distinct visuals and music."
+---
+
+Rudi Foodi's 20 worlds range from cozy interiors to alien voids, each built from the `levelThemes` array and rendered with Three.js geometry. Every world carries its own color palette, procedural map layout, and musical theme — so no two levels feel the same whether Rudi is chasing treats across a candy forest or dodging lava on floating islands.
+
+## World Structure
+
+Each level is described by a single `levelTheme` object in the `levelThemes` array. The fields that drive the Three.js scene setup are:
+
+| Field  | Type    | Description                                                        |
+| ------ | ------- | ------------------------------------------------------------------ |
+| `name` | string  | Display name shown on the level title card                         |
+| `floor` | hex    | Color of the ground / floor plane                                  |
+| `wall`  | hex    | Color of primary wall and structure geometry                       |
+| `sky`   | hex    | Background sky / fog color                                         |
+| `wood`  | hex    | Accent color for secondary structural elements (furniture, beams…) |
+| `dark`  | hex    | Shadow / deep accent color                                         |
+| `map`   | string | Layout generator identifier (see Map Types below)                  |
+| `sun`   | boolean| When `true`, a `THREE.DirectionalLight` casts shadows in the scene |
+
+<Note>
+  When `sun` is `false` the scene relies on hemisphere light only, producing the moody, low-contrast atmosphere of worlds like Void Platforms, Crystal Cave, and the Arcade Grid.
+</Note>
+
+## Map Types
+
+Each `map` string routes to a dedicated geometry generator that populates the Three.js scene with obstacles, platforms, and decorations unique to that world.
+
+| Map value   | Description                                                     |
+| ----------- | --------------------------------------------------------------- |
+| `house`     | Bedroom/interior walls with furniture and household props       |
+| `maze`      | Corridors of wall segments and accent-colored beams             |
+| `islands`   | Floating cylindrical platforms over a void or lava backdrop     |
+| `city`      | Random-height building pillars in a neon city grid              |
+| `hills`     | Rolling terrain with slopes and elevation changes               |
+| `fort`      | Enclosed snow fort geometry with icy battlements                |
+| `temple`    | Temple columns, archways, and tiered stone platforms            |
+| `platforms` | Sparse floating void platforms with no ground beneath           |
+| `candy`     | Candy forest with pastel-colored tree shapes                    |
+| `factory`   | Industrial geometry: grates, ducts, and metal walkways          |
+| `craters`   | Moon surface craters and low grey rubble                        |
+| `ship`      | Pirate ship deck with railings and mast obstacles               |
+| `crystal`   | Crystal cave formations jutting from floors and ceilings        |
+| `kitchen`   | Kitchen obstacles — counters, chairs, and appliance silhouettes |
+| `arcade`    | Neon arcade grid with glowing block obstacles                   |
+| `jungle`    | Dense jungle block geometry with layered foliage shapes         |
+| `desert`    | Desert dunes with bone and rock scatter                         |
+| `clouds`    | Floating cloud steps ascending through a bright sky             |
+| `pipes`     | Basement pipe maze with narrow passages                         |
+| `park`      | Open dog park — the grand finale arena                          |
+
+## Music
+
+The game uses **10 music themes** that cycle across all 20 levels via Web Audio API oscillators. Each theme is a `musicThemes` object containing:
+
+- **`chords`** — a 4-entry array of `[bass, pad1, pad2]` frequency triplets that cycle on a timed interval
+- **`melody`** — an 8-note frequency array played by a square-wave oscillator
+- **`speed`** — the millisecond interval between melody steps (lower = faster)
+
+Level `N` uses music theme index `(N - 1) % 10`, so Level 1 and Level 11 share the same theme, Level 2 and Level 12 share one, and so on. This means every pair of worlds a decade apart is sonically linked even though they look completely different.
+
+## Standout Worlds
+
+<CardGroup cols={2}>
+  <Card title="🌋 Lava Islands" icon="fire">
+    Level 3. Floating cylindrical platforms hover over a smouldering lava void. Deep crimson geometry (`floor: #3b0909`) and a burnt-orange sky (`sky: #ff7a2f`) combine for the game's most dramatic atmosphere. Sun is off — the glow comes from the lava itself.
+  </Card>
+  <Card title="🌆 Neon City" icon="city">
+    Level 4. Random-height building pillars fill a purple-black grid. Deep indigo tones (`sky: #5533aa`, `floor: #222244`) and no directional sun create that quintessential neon-noir mood. The fastest music theme (250 ms/step) keeps the energy high.
+  </Card>
+  <Card title="💎 Crystal Cave" icon="gem">
+    Level 13. Jagged crystal formations erupt from the floor and ceiling of a pitch-dark cave (`sky: #160a2e`). Vivid violet walls (`wall: #7a5cff`) make every formation sparkle. No sun — hemisphere light only — so crystals catch just the right amount of ambient glow.
+  </Card>
+  <Card title="🐕 Final Dog Park" icon="dog">
+    Level 20. The grand finale. An open park with bright green turf (`floor: #60a840`) and a clear sky (`sky: #66ccff`) — the biggest, most open map in the game. Full directional sunlight bathes the arena for Rudi's ultimate treat-collecting showdown.
+  </Card>
+</CardGroup>

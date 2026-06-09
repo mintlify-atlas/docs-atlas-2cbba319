@@ -1,0 +1,189 @@
+---
+title: "Rudi Foodi Project Structure and File Layout"
+sidebarTitle: "Project Structure"
+description: "Rudi Foodi's codebase is a single HTML file containing all game logic. Learn how it is organized and where each system lives."
+---
+
+The entire game — HTML, CSS, and JavaScript — lives in one file. Understanding the internal layout of that file is the key to making any modification, whether you want to tweak a level theme, adjust movement speed, or wire up a new power-up.
+
+## File Overview
+
+| File | Purpose |
+|------|---------|
+| `rudi_low_poly_3_d_game 6.html` | The entire game (HTML + CSS + JS) |
+| `preview.html` | Static landing/preview page |
+| `README.md` | Project overview and feature list |
+
+## Internal Layout of the Game File
+
+`rudi_low_poly_3_d_game 6.html` is organised into four sequential sections inside a single HTML document.
+
+### 1. `<style>` Block
+
+All visual styling lives in one `<style>` tag in the `<head>`. It covers:
+
+- **HUD** (`#hud`) — level counter, treat score, zoomies percentage, zoom-stacks button, clone-count button, spin-toggle button, power-up counter
+- **Title screen** (`#titleScreen`, `#gameTitle`, `#playButton`, `#controlsCard`, `#titleRudi`) — the gradient splash screen shown before play starts
+- **Joystick** (`#joystickBase`, `#joystickKnob`) — the left-side touch joystick
+- **Zoom controls** (`#zoomButton`, `#zoomToggleButton`) — the jump button and the ZOOMIES toggle
+- **Camera zone** (`#cameraZone`) — invisible full-screen overlay that captures drag-to-rotate pointer events
+- **Overlay panels** (`#creditsPanel`, `#leaderboardPanel`, `#nameEntryPanel`) — modal cards for credits, the global/local leaderboard, and the post-game name-entry form
+- **End screen** (`#endText`, `#endingMessage`, `#goBackButton`) — the ending overlay shown after fly-away, meteor, or final-boss cutscenes
+- **Flash overlay** (`#explosionOverlay`) — a full-screen white div that fades in during the meteor explosion
+
+### 2. `<body>` HTML — Static DOM Elements
+
+The `<body>` declares the game's UI skeleton before any JavaScript runs:
+
+- `#titleScreen` — full-screen title with difficulty buttons (Easy / Medium / Hard), the Play button, the animated Rudi preview canvas, and the controls reference card
+- `#creditsPanel` — modal overlay with credits and lore text
+- `#leaderboardPanel` — modal overlay with the `<ol id="leaderboardList">` populated at runtime
+- `#nameEntryPanel` — modal overlay with `#usernameInput`, `#nameEntryError`, Save and Skip buttons
+- `#hud` — always-visible in-game heads-up display
+- `#hint` — bottom-center hint bar updated dynamically during gameplay
+- `#cameraZone` — transparent pointer-capture layer for camera drag
+- `#joystickBase` / `#joystickKnob` — touch joystick
+- `#zoomToggleButton` / `#zoomButton` — ZOOMIES toggle and the jump/ascend button
+- `#explosionOverlay` — white flash div
+- `#endText` / `#endingMessage` / `#goBackButton` — end-game screen
+
+### 3. Three.js CDN Import
+
+Three.js is loaded from unpkg immediately before the main game script:
+
+```html
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+```
+
+Firebase is loaded from Google's CDN for the optional leaderboard:
+
+```html
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+```
+
+There are no other external dependencies.
+
+### 4. `<script>` Game Logic
+
+Everything else — scene setup, constants, Rudi, levels, audio, input, gameplay, endings, leaderboard, and the animation loop — is in one `<script>` block that begins with `"use strict";`.
+
+## Script Section Breakdown
+
+<Note>
+  All state is global within the script block. There are no ES modules, no classes, and no closures wrapping the top-level state. This is intentional — the codebase is designed to be readable and hackable without a module system.
+</Note>
+
+### Scene Setup
+
+The Three.js world is created at the top of the script, before any functions are defined:
+
+- `THREE.Scene` with a sky-blue background (`0x98dfff`) and distance fog
+- `THREE.WebGLRenderer` with `antialias: true`, PCF soft shadows, and a pixel-ratio cap of `2`
+- `THREE.PerspectiveCamera` (60° FOV) positioned behind and above the origin
+- `hemiLight` — a `THREE.HemisphereLight` for ambient sky/ground fill
+- `sun` — a `THREE.DirectionalLight` with a `1024×1024` shadow map
+
+### Constants and State
+
+Global variables declared immediately after the DOM references include:
+
+| Variable | Purpose |
+|----------|---------|
+| `gameStarted` | Whether the title screen has been dismissed |
+| `currentLevel` | Active level number (1–20) |
+| `score` | Treats collected in the current level |
+| `boost` | Zoomies energy (0–100) |
+| `speedStacks` | Number of permanent speed power-ups collected |
+| `speedMultiplier` | Computed speed multiplier from stacks and level progression |
+| `clones[]` | Array of active Rudi clone `THREE.Group` objects |
+| `treats[]` | Array of active treat meshes |
+| `powerUps[]` | Array of active power-up orb meshes |
+| `debrisObjects[]` | Explosion debris meshes created by the meteor ending |
+| `roomObjects[]` | All meshes added by `makeRoom()`, cleared on level change |
+
+### Geometry Builders
+
+Three small helper functions build all in-game geometry:
+
+- **`mat(color, roughness)`** — returns a `THREE.MeshStandardMaterial` with flat shading disabled and minimal metalness
+- **`box(w, h, d, color)`** — returns a shadow-casting `THREE.Mesh` with `BoxGeometry`
+- **`cone(r, h, color, sides)`** — returns a shadow-casting `THREE.Mesh` with `ConeGeometry`
+- **`makeRudi()`** — assembles a full Rudi `THREE.Group` from boxes and cones: body, chest, head, snout, nose, face stripe, ears, tail, legs, eyes, and pupils. The `userData.kind` tag on each part lets the animation loop find legs, ears, tail, and head by traversal.
+
+### Level Data
+
+- **`levelThemes[]`** — 20 entries, one per level. Each entry defines floor colour, wall colour, sky colour, wood colour, dark colour, a `map` key (e.g. `"house"`, `"maze"`, `"lava"`, `"city"`), and a `sun` boolean.
+- **`musicThemes[]`** — 10 entries used by `applyLevelMusic()`. Each entry contains chord frequency arrays and a `speed` value (milliseconds per beat). Levels cycle through the 10 themes across all 20 levels.
+
+### Level Generation
+
+- **`makeRoom(level)`** — clears `roomObjects[]`, sets the scene background and fog to the level theme's sky colour, recolours the ground and carpet, then builds level geometry based on the theme's `map` key (walls, islands, buildings, platforms, crystals, etc.). Calls `addBetterLevelDetails()` for extra decorative geometry per theme.
+- **`spawnLevel(level)`** — calls `makeRoom()`, then clears and respawns treats and power-ups. Treat count scales with level (capped at 90); power-up count decreases with level (minimum 6).
+- **`makeTreat()`** — creates a spinning gold cone treat and adds it to the scene and `treats[]`.
+- **`makePowerUp(color, type)`** — creates a sphere orb with a `userData.type` string (`"speed"`, `"big"`, `"small"`, `"clone3"`, `"clone1"`) and adds it to `powerUps[]`.
+
+### Audio
+
+The `audio` object holds the Web Audio API context and node references. Key functions:
+
+- **`initAudio()`** — creates `AudioContext`, `masterGain`, and `musicGain`. Called once on the first pointer interaction.
+- **`beep(freq, duration, type, volume)`** — plays a one-shot sound effect using a temporary oscillator and gain envelope. Used for treat collection, jump, zoomies toggle, and level transitions.
+- **`applyLevelMusic(level)`** — selects a `musicThemes` entry by `(level - 1) % 10`, then drives two oscillators (`padOsc1`, `padOsc2`) and a bass oscillator through chord and melody intervals using `setInterval`.
+- **`stopMusic()`** — clears the music intervals and fades the music gain to near-zero.
+
+### Input Handling
+
+- **`keys` object** — populated by `keydown`/`keyup` listeners. WASD and arrow keys map to movement.
+- **`joy` object** — tracks joystick pointer state (`x`, `y`, `active`, `id`). Pointer events on `#joystickBase` update the knob position and `joy.x` / `joy.y`.
+- **`camTouch` object** — tracks camera-drag pointer state. `pointermove` on `#cameraZone` increments `cameraYaw` and `cameraPitch`, which are clamped and used each frame to orbit the camera around Rudi.
+
+### Game Logic
+
+- **`updateGameplay(dt)`** — the main per-frame function during normal play. Reads keyboard and joystick input, converts to world-space movement, applies `velocity` with friction, clamps `rudiPos` to the world bounds, animates Rudi's legs/tail/ears/head, manages boost drain and recharge, checks treat and power-up collisions, updates the ending star, and positions the camera behind Rudi.
+- **`updateClones(dt)`** — orbits each clone around Rudi at a radius based on clone count, checks clone-treat and clone-power-up collisions.
+- **`updateDebris()`** — advances each debris object's position by its velocity vector and applies a simple gravity decrement each frame.
+- **`collectTreat(treat, collectedByClone)`** — increments score, plays a beep, respawns the treat at a random position, and triggers level advancement when the treat goal is met. Activates spin mode at 10 treats and dance mode at 20.
+- **`applyPowerUp(type)`** — applies the power-up effect: `"speed"` increments `speedStacks`; `"big"` / `"small"` set `sizeMultiplier` and schedule a reset; `"clone3"` calls `createClone()` three times; `"clone1"` calls it once.
+
+### Endings
+
+Three distinct ending sequences replace `updateGameplay` in the animation loop:
+
+- **`triggerFlyAwayEnding()`** / **`updateFlyAwayEnding(dt)`** — Rudi floats upward and flies off screen. Triggered when the last level's treat goal is met in Easy or Medium mode.
+- **`triggerMeteorEnding()`** / **`updateMeteorEnding(dt)`** — a textured lava meteor descends from above and explodes, shattering all room geometry into debris. Triggered by collecting the golden ending star.
+- **`advanceLevelAfterMeteor()`** — after the explosion settles, resets the scene and advances to the next level (or calls `showEnding` if already on level 20).
+- **`showEnding(message, completedGame)`** — displays `#endText` with the ending message and optionally calls `askForLeaderboardName()`.
+
+### Leaderboard
+
+- **`openLeaderboard()`** — calls `renderLeaderboard()` and shows `#leaderboardPanel`.
+- **`saveLeaderboard(entries)`** — writes the sorted entries array to `localStorage` under `rudiFoodiLeaderboardV1`.
+- **`askForLeaderboardName(timeMs)`** — shows `#nameEntryPanel` with the player's completion time and waits for a username submission. Validates against a banned-word list before saving.
+
+When `GLOBAL_LEADERBOARD_ENABLED` is `true`, reads and writes go to Firestore instead of `localStorage`.
+
+### Animation Loop
+
+```js
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.033); // capped at ~30 fps minimum
+
+  if (!gameStarted) {
+    updateTitle(dt);   // spins the title-screen Rudi preview
+    return;
+  }
+
+  if (finalBossEnding)   updateFinalBossEnding(dt);
+  else if (flyAwayEnding) updateFlyAwayEnding(dt);
+  else if (meteorEnding)  updateMeteorEnding(dt);
+  else                    updateGameplay(dt);
+
+  updateHunter(dt);   // moves the hunter dog in Medium/Hard mode
+  updateDebris();     // advances explosion debris
+  renderer.render(scene, camera);
+}
+```
+
+`animate()` uses `THREE.Clock` for frame-delta and caps `dt` at `0.033` seconds to prevent physics tunnelling on slow frames. The title screen runs a separate `titleRenderer` that renders `titleScene` (containing only the spinning Rudi preview) into the `#titleRudi` div.

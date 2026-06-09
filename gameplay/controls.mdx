@@ -1,0 +1,100 @@
+---
+title: "Controls: Keyboard, Mouse, and Touch Reference"
+sidebarTitle: "Controls"
+description: "Complete control reference for Rudi Foodi on desktop and mobile — WASD movement, mouse camera drag, touch joystick, and the Zoomies button."
+---
+
+Rudi Foodi runs entirely in the browser and supports two control schemes out of the box. On desktop you use the keyboard to move Rudi and drag the mouse anywhere on screen to orbit the camera. On mobile (and any touch screen) a virtual joystick in the bottom-left corner handles movement, while swiping anywhere else rotates the camera. A large circular **ZOOMIES** button in the bottom-right corner is reachable on both platforms and unlocks Rudi's boost mode. Both input methods are active simultaneously, so you can plug in a keyboard while on a touchscreen device and both will work at once.
+
+<Tabs>
+  <Tab title="Desktop">
+    ## Keyboard Movement
+
+    Rudi moves relative to the current camera direction — pressing **W** always moves Rudi *forward* from the camera's perspective, not toward the world's north.
+
+    | Key(s)                     | Action                          |
+    | -------------------------- | ------------------------------- |
+    | `W` or `↑`                 | Move forward                    |
+    | `S` or `↓`                 | Move backward                   |
+    | `A` or `←`                 | Strafe left                     |
+    | `D` or `→`                 | Strafe right                    |
+    | Diagonal combos (`W`+`D`)  | Move diagonally (full speed)    |
+
+    ## Mouse Camera
+
+    Click and drag anywhere on the game canvas to orbit the camera around Rudi. The drag is handled by the full-screen `#cameraZone` overlay which captures pointer events across the entire viewport.
+
+    | Action              | Effect                                |
+    | ------------------- | ------------------------------------- |
+    | Drag left / right   | Rotate camera horizontally (cameraYaw)  |
+    | Drag up / down      | Tilt camera vertically (cameraPitch)    |
+
+    Horizontal drag applies a sensitivity of **0.008 radians per pixel** and vertical drag applies **0.006 radians per pixel**. cameraPitch is clamped to the range **−1.2 → 1.05 radians** so the camera can never flip upside-down.
+
+    ## ZOOMIES Button
+
+    The **ZOOMIES** button (`#zoomButton`) is fully clickable on desktop. A single click toggles boost mode on; clicking again turns it off. While boost is active, the button turns yellow and scales up slightly (`scale(1.12)`) as a visual confirmation. Boost drains at **22% per second** and recharges at **18% per second** — the current percentage is shown in the HUD's **Zoomies** field.
+  </Tab>
+
+  <Tab title="Mobile / Touch">
+    ## Virtual Joystick
+
+    A semi-transparent circular joystick sits in the bottom-left corner of the screen (`#joystickBase`, 120 × 120 px). Touch and hold anywhere inside the base to grab the knob (`#joystickKnob`). Drag it up to move Rudi forward, down to move backward, and left or right to strafe. The knob is capped at a **42 px** radius from center — dragging beyond that point still registers as full-speed input.
+
+    | Joystick Direction | Rudi Movement      |
+    | ------------------ | ------------------ |
+    | Push up            | Move forward       |
+    | Push down          | Move backward      |
+    | Push left          | Strafe left        |
+    | Push right         | Strafe right       |
+    | Diagonal push      | Move diagonally    |
+
+    Releasing the joystick snaps the knob back to center and Rudi decelerates naturally (velocity decays by a factor of **0.88** per frame).
+
+    ## Touch Camera Drag
+
+    The invisible `#cameraZone` div covers the entire screen at z-index 3. Any touch that does **not** land on the joystick base or the ZOOMIES button is captured here. Swipe left or right to rotate the camera horizontally; swipe up or down to tilt it.
+
+    | Gesture              | Effect                                    |
+    | -------------------- | ----------------------------------------- |
+    | Swipe left / right   | Rotate camera around Rudi (cameraYaw)     |
+    | Swipe up / down      | Tilt camera up or down (cameraPitch)      |
+
+    cameraPitch is clamped between **−1.2 and 1.05 radians** on touch, just as on desktop.
+
+    ## ZOOMIES Button
+
+    The **ZOOMIES** button (`#zoomButton`) is a 96 × 96 px circle fixed to the **bottom-right** corner of the screen. Tap it once to toggle boost mode on; tap again to toggle it off. When boost is active, Rudi's top speed jumps from **9 units/s** to **24 units/s** (multiplied further by any speed stacks you've collected).
+  </Tab>
+</Tabs>
+
+---
+
+## Camera Details
+
+The game camera is a `THREE.PerspectiveCamera(60, ...)` — a 60° vertical field of view — that orbits around Rudi at a fixed distance of **20 units**. Its position is recalculated every frame from `cameraYaw` and `cameraPitch`:
+
+```
+horizontalDistance = cos(cameraPitch) × 20
+verticalOffset     = sin(cameraPitch) × 20 + 10
+camX = rudiPos.x − sin(cameraYaw) × horizontalDistance
+camZ = rudiPos.z − cos(cameraYaw) × horizontalDistance
+camY = max(2.5, verticalOffset)
+```
+
+The camera lerps toward its computed target position at a rate of **0.11** per frame so it feels smooth rather than snapping. It always looks at the point `(rudiPos.x, 1.6, rudiPos.z)` — slightly above Rudi's feet — to keep him well-framed.
+
+---
+
+## HUD Buttons
+
+Two interactive buttons live inside the top-left HUD (`#hud`). Both are `pointer-events: auto` so they work even though the HUD itself is non-interactive.
+
+| Button                  | ID                    | First Tap                                             | Second Tap                                       |
+| ----------------------- | --------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| **Zoom stacks: N**      | `#zoomStacksButton`   | Highlights red — arms a reset confirmation            | Resets `speedStacks` and `speedMultiplier` to 1  |
+| **Clones: N**           | `#cloneCountButton`   | Highlights red — arms a clone-clear confirmation      | Removes all clones from the scene                |
+
+<Note>
+  Both buttons require **two taps** to take effect. The first tap turns the button red and shows a confirmation hint at the bottom of the screen; the second tap executes the action. This prevents accidental resets mid-run.
+</Note>

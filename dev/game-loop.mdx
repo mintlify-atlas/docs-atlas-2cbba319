@@ -1,0 +1,254 @@
+---
+title: "Game Loop, Physics, and Clone AI in Rudi Foodi"
+sidebarTitle: "Game Loop"
+description: "How Rudi Foodi's animate() loop, delta-time movement, collision detection, clone AI, and debris physics all work together."
+---
+
+Rudi Foodi's game loop is a standard `requestAnimationFrame` loop that computes delta time and routes to either the title-screen updater or the gameplay updater each frame. Everything — movement, animation, collision, AI, and physics — runs inside a single JavaScript thread with no workers and no fixed-step substep logic.
+
+## The `animate()` Function
+
+`animate()` is the root of all per-frame work. It uses a `THREE.Clock` to measure real elapsed time and caps the delta at `0.033` seconds (≈ 30 fps minimum) to prevent large tunnelling jumps when the tab is backgrounded:
+
+```js
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.033);
+
+  if (!gameStarted) {
+    updateTitle(dt);
+    return;
+  }
+
+  if (flyAwayEnding)      updateFlyAwayEnding(dt);
+  else if (meteorEnding)  updateMeteorEnding(dt);
+  else                    updateGameplay(dt);
+
+  updateDebris();
+  renderer.render(scene, camera);
+}
+
+animate();
+```
+
+<Note>
+  `updateDebris()` runs unconditionally every frame — debris launched by the meteor explosion keeps flying even during the ending cinematics.
+</Note>
+
+When `gameStarted` is `false` (title screen), only `updateTitle(dt)` runs. That function rotates and bobs the preview dog in the title-screen mini-renderer and calls `titleRenderer.render()` separately from the main renderer.
+
+## `updateGameplay(dt)`
+
+`updateGameplay` is the core simulation step. It handles input → movement → collision → camera every frame.
+
+### Input and Movement
+
+The `keys` object is populated by `keydown`/`keyup` listeners. The virtual joystick's normalized `joy.x` / `joy.y` are added on top of keyboard input. Both are then rotated into world space based on `cameraYaw`:
+
+```js
+let mx = 0, mz = 0;
+
+if (keys.w || keys.arrowup)    mz += 1;
+if (keys.s || keys.arrowdown)  mz -= 1;
+if (keys.a || keys.arrowleft)  mx -= 1;
+if (keys.d || keys.arrowright) mx += 1;
+
+mx += joy.x;
+mz += -joy.y;
+
+const forwardX = Math.sin(cameraYaw),  forwardZ = Math.cos(cameraYaw);
+const rightX   = -Math.cos(cameraYaw), rightZ   = Math.sin(cameraYaw);
+const worldMX  = rightX * mx + forwardX * mz;
+const worldMZ  = rightZ * mx + forwardZ * mz;
+```
+
+The computed world-space input vector is normalized and applied as an acceleration impulse into `velocity`. The velocity is then damped with `multiplyScalar(0.88)` each frame (friction) and clamped to `topSpeed`:
+
+```js
+const topSpeed = (zooming ? 24 : 9) * speedMultiplier;
+
+if (inputLen > 0.05) {
+  velocity.x += moveX * topSpeed * dt * 6;
+  velocity.z += moveZ * topSpeed * dt * 6;
+}
+
+velocity.multiplyScalar(0.88);
+if (velocity.length() > topSpeed) velocity.setLength(topSpeed);
+rudiPos.addScaledVector(velocity, dt);
+rudiPos.x = THREE.MathUtils.clamp(rudiPos.x, -720, 720);
+rudiPos.z = THREE.MathUtils.clamp(rudiPos.z, -720, 720);
+```
+
+`rudiPos` is a `THREE.Vector3` that represents Rudi's logical world position. The mesh follows it with `rudi.position.copy(rudiPos)`. Boundary clamping at ±720 prevents Rudi from escaping the room walls.
+
+### Zoomies
+
+The `zoomLocked` boolean is toggled by the ZOOMIES button. When active and `boost > 0`, `topSpeed` jumps to `24 * speedMultiplier` and the boost meter drains at `22` units/second. It recharges at `18` units/second when Zoomies is off:
+
+```js
+if (zooming) boost = Math.max(0, boost - dt * 22);
+else         boost = Math.min(100, boost + dt * 18);
+```
+
+### Treat and Power-Up Proximity Checks
+
+Collision is distance-based with no broad-phase acceleration — all arrays are iterated every frame. A treat is "collected" when Rudi's position is within `3.1` units:
+
+```js
+for (const treat of treats) {
+  treat.rotation.z += dt * 2.5;
+  treat.rotation.y += dt * 1.2;
+  if (treat.position.distanceTo(rudiPos) < 3.1) collectTreat(treat, false);
+}
+```
+
+Power-ups use a slightly larger radius of `5` units (they are larger spheres):
+
+```js
+if (power.position.distanceTo(rudiPos) < 5) {
+  applyPowerUp(power.userData.type);
+  scene.remove(power);
+  powerUps.splice(i, 1);
+}
+```
+
+### Level Advancement
+
+Inside `collectTreat()`, after incrementing `score`, the game checks whether the level goal has been reached. The goal scales with level and caps at 75:
+
+```js
+const levelGoal = Math.min(75, 15 + currentLevel * 5);
+if (score >= levelGoal && currentLevel < MAX_LEVELS) {
+  currentLevel++;
+  score = 0;
+  spawnLevel(currentLevel);
+  if (currentLevel >= 4)  speedMultiplier += 0.25;
+  if (currentLevel >= 10) createClone();
+}
+```
+
+Speed permanently increases by `0.25×` every level from level 4 onward. An extra Rudi clone is added automatically at level 10.
+
+### Camera Follow
+
+The camera orbits `rudiPos` each frame using `cameraYaw` and `cameraPitch` spherical coordinates at a fixed distance of `20` units. A `lerp` factor of `0.11` keeps the follow smooth:
+
+```js
+const camDistance = 20;
+const horizontalDistance = Math.cos(safePitch) * camDistance;
+const verticalOffset     = Math.sin(safePitch) * camDistance + 10;
+
+camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.11);
+camera.lookAt(rudiPos.x, 1.6, rudiPos.z);
+```
+
+## Clone AI (`updateClones`)
+
+Clones do not pathfind — they orbit Rudi in an evenly-spaced ring that rotates slowly over time. Each clone's target position is computed from a polar offset keyed on its index and `performance.now()`:
+
+```js
+const angle = ((Math.PI * 2) / Math.max(1, clones.length)) * i
+              + performance.now() * 0.00015;
+const radius = 8 + clones.length * 1.8;
+
+const orbitTarget = new THREE.Vector3(
+  rudi.position.x + Math.sin(angle) * radius,
+  rudi.position.y,
+  rudi.position.z + Math.cos(angle) * radius
+);
+
+clone.position.lerp(orbitTarget, 0.06);
+clone.lookAt(rudi.position.x, clone.position.y, rudi.position.z);
+```
+
+Clones also have their own treat and power-up proximity loops — they collect anything they drift close to, and `collectTreat(treat, true)` marks the collection as clone-sourced (used to play a different beep and suppress the spin-mode trigger check).
+
+### Fly-Away Clone
+
+When the player accumulates 10 or more speed stacks and at least one clone exists, the first clone is flagged for fly-away:
+
+```js
+if (speedStacks >= 10 && clones.length > 0 && !cloneFlyAwayTriggered) {
+  cloneFlyAwayTriggered = true;
+  const flyingClone = clones[0];
+  flyingClone.userData.flyAway = true;
+  flyingClone.userData.flyVelocity = new THREE.Vector3(18, 12, -24);
+}
+```
+
+Inside `updateClones`, fly-away clones skip the orbit logic and instead add `flyVelocity * dt` to their position each frame, with a positive Y acceleration applied to simulate upward drift:
+
+```js
+if (clone.userData.flyAway) {
+  clone.position.addScaledVector(clone.userData.flyVelocity, dt);
+  clone.userData.flyVelocity.y += dt * 8;
+  continue;
+}
+```
+
+## Debris Physics (`updateDebris`)
+
+When the meteor explosion triggers `explodeRoom()`, every mesh in the scene is converted to debris. Each debris object carries `vel` and `spin` vectors stored in `userData`:
+
+```js
+debris.userData.vel = new THREE.Vector3(
+  Math.cos(angle) * launchForce,
+  Math.random() * 11 + 4,
+  Math.sin(angle) * launchForce
+);
+debris.userData.spin = new THREE.Vector3(
+  Math.random() * 0.25,
+  Math.random() * 0.25,
+  Math.random() * 0.25
+);
+```
+
+`updateDebris()` applies Euler integration every frame — no collision, no damping, just gravity:
+
+```js
+function updateDebris() {
+  for (const debris of debrisObjects) {
+    debris.position.add(debris.userData.vel);
+    debris.userData.vel.y -= 0.08;   // gravity
+    debris.rotation.x += debris.userData.spin.x;
+    debris.rotation.y += debris.userData.spin.y;
+    debris.rotation.z += debris.userData.spin.z;
+  }
+}
+```
+
+<Note>
+  Unlike the task description, the source gravity constant is `0.08` per frame (not `0.25`). Debris is never removed from the scene automatically — it is only cleared when the level advances via `advanceLevelAfterMeteor()` or when the player returns to the menu via `resetGameToMenu()`.
+</Note>
+
+## Power-Up Animation (`updatePowerAnimation`)
+
+When Rudi collects a power-up, `animateRudiPower(nextForm)` sets up a `powerAnim` object describing a scale transition. `updatePowerAnimation(dt)` interpolates `rudi.scale` toward the target each frame:
+
+```js
+function easeOutBack(t) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+```
+
+Animations with a `mid` scale (e.g., the "big" squash-stretch) interpolate in two halves: `from → mid` then `mid → to`, both using `easeOutBack`. Animations without a mid scale (e.g., "small" or "normal") use `easeInOut` for a single smooth blend.
+
+Each power form also has a style-specific side effect during the tween:
+
+| Form | Style | Side effect |
+|---|---|---|
+| `big` | `growSquash` | Intermediate scale wider than final |
+| `small` | `shrink` | `rudi.rotation.z` wobbles during tween |
+| `speed` | `stretchZoom` | Squashes narrow and long mid-transition |
+| `clone` | `clonePop` | `rudi.position.y` bounces upward |
+| `normal` | `settle` | Plain lerp back to default scale |
+
+Once `powerAnim.time >= powerAnim.duration`, the final scale is snapped to `powerAnim.to` and `powerAnim` is set to `null`.

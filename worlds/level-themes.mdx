@@ -1,0 +1,88 @@
+---
+title: "All 20 Level Themes: Colors, Maps, and Moods"
+sidebarTitle: "Level Themes"
+description: "Complete reference for all 20 Rudi Foodi level themes including color palettes, map layout type, and whether directional sunlight is active."
+---
+
+The `levelThemes` array in the game source defines the visual identity of every level. Each entry specifies five hex colors — `floor`, `wall`, `sky`, `wood`, and `dark` — plus a `map` type string and a `sun` boolean that together drive the entire Three.js scene setup for that world. The table and color palette below are extracted directly from the source and are the canonical reference for modders and contributors.
+
+## Full Level Reference
+
+<Note>
+  The `sun` column indicates whether `THREE.DirectionalLight` is active for that level. ☀️ means directional sunlight is enabled; 🌑 means the scene uses hemisphere light only, producing darker, moodier visuals.
+</Note>
+
+| Level | Name             | Map Type    | Sun |
+| ----: | ---------------- | ----------- | :-: |
+| 1     | Clean Bedroom    | `house`     | ☀️  |
+| 2     | Blue Maze        | `maze`      | ☀️  |
+| 3     | Lava Islands     | `islands`   | 🌑  |
+| 4     | Neon City        | `city`      | 🌑  |
+| 5     | Grass Hills      | `hills`     | ☀️  |
+| 6     | Snow Fort        | `fort`      | ☀️  |
+| 7     | Gold Temple      | `temple`    | ☀️  |
+| 8     | Void Platforms   | `platforms` | 🌑  |
+| 9     | Candy Forest     | `candy`     | ☀️  |
+| 10    | Tech Factory     | `factory`   | 🌑  |
+| 11    | Moon Yard        | `craters`   | 🌑  |
+| 12    | Pirate Deck      | `ship`      | ☀️  |
+| 13    | Crystal Cave     | `crystal`   | 🌑  |
+| 14    | Kitchen Chaos    | `kitchen`   | ☀️  |
+| 15    | Arcade Grid      | `arcade`    | 🌑  |
+| 16    | Jungle Blocks    | `jungle`    | ☀️  |
+| 17    | Desert Bones     | `desert`    | ☀️  |
+| 18    | Cloud Steps      | `clouds`    | ☀️  |
+| 19    | Basement Pipes   | `pipes`     | 🌑  |
+| 20    | Final Dog Park   | `park`      | ☀️  |
+
+## Color Palettes
+
+The JSON block below is the complete `levelThemes` array copied verbatim from the game source. All hex values are expressed as JavaScript numeric literals (e.g. `0xc9c2b8`). When adding a new level, follow this schema exactly — the scene builder reads these fields by name.
+
+```json
+[
+  { "name": "Clean Bedroom",  "floor": "0xc9c2b8", "wall": "0xe8e8e5", "sky": "0x98dfff", "wood": "0x8a5c37", "dark": "0x5c3d28", "map": "house",     "sun": true  },
+  { "name": "Blue Maze",      "floor": "0x7799cc", "wall": "0xdfeaff", "sky": "0x8fcfff", "wood": "0x775533", "dark": "0x334466", "map": "maze",      "sun": true  },
+  { "name": "Lava Islands",   "floor": "0x3b0909", "wall": "0x5a1710", "sky": "0xff7a2f", "wood": "0x6b2e16", "dark": "0x190808", "map": "islands",   "sun": false },
+  { "name": "Neon City",      "floor": "0x222244", "wall": "0x1a1a2e", "sky": "0x5533aa", "wood": "0x442266", "dark": "0x111122", "map": "city",      "sun": false },
+  { "name": "Grass Hills",    "floor": "0x74b857", "wall": "0xd8ffd2", "sky": "0xaeefff", "wood": "0x8a5c37", "dark": "0x335522", "map": "hills",     "sun": true  },
+  { "name": "Snow Fort",      "floor": "0xf1f6ff", "wall": "0xdbe9ff", "sky": "0xb9e5ff", "wood": "0x9b8c7a", "dark": "0x4a5a66", "map": "fort",      "sun": true  },
+  { "name": "Gold Temple",    "floor": "0xd8b64a", "wall": "0xffe28a", "sky": "0xffd36b", "wood": "0x9b621f", "dark": "0x5b3510", "map": "temple",    "sun": true  },
+  { "name": "Void Platforms", "floor": "0x111111", "wall": "0x222222", "sky": "0x050510", "wood": "0x333333", "dark": "0x000000", "map": "platforms", "sun": false },
+  { "name": "Candy Forest",   "floor": "0xffb6d5", "wall": "0xffe3f0", "sky": "0xbdefff", "wood": "0xc98dff", "dark": "0x8844aa", "map": "candy",     "sun": true  },
+  { "name": "Tech Factory",   "floor": "0x303844", "wall": "0x556677", "sky": "0x87a8c8", "wood": "0x223344", "dark": "0x101820", "map": "factory",   "sun": false },
+  { "name": "Moon Yard",      "floor": "0x777777", "wall": "0xbdbdbd", "sky": "0x111133", "wood": "0x555555", "dark": "0x222222", "map": "craters",   "sun": false },
+  { "name": "Pirate Deck",    "floor": "0x6b4425", "wall": "0x87ceeb", "sky": "0x65b7ff", "wood": "0x8b5a2b", "dark": "0x3b2412", "map": "ship",      "sun": true  },
+  { "name": "Crystal Cave",   "floor": "0x3f2a66", "wall": "0x7a5cff", "sky": "0x160a2e", "wood": "0x452a70", "dark": "0x170821", "map": "crystal",   "sun": false },
+  { "name": "Kitchen Chaos",  "floor": "0xf2e7d0", "wall": "0xffffff", "sky": "0xd7f2ff", "wood": "0xa06a3b", "dark": "0x333333", "map": "kitchen",   "sun": true  },
+  { "name": "Arcade Grid",    "floor": "0x101020", "wall": "0x202040", "sky": "0x000018", "wood": "0x4422aa", "dark": "0x050510", "map": "arcade",    "sun": false },
+  { "name": "Jungle Blocks",  "floor": "0x2f7d32", "wall": "0x77aa55", "sky": "0x9ce6ff", "wood": "0x604020", "dark": "0x1c421d", "map": "jungle",    "sun": true  },
+  { "name": "Desert Bones",   "floor": "0xd2a45f", "wall": "0xf2d49b", "sky": "0xffc36b", "wood": "0x8a5c37", "dark": "0x5b3510", "map": "desert",    "sun": true  },
+  { "name": "Cloud Steps",    "floor": "0xffffff", "wall": "0xd7f5ff", "sky": "0x88d8ff", "wood": "0xeeeeff", "dark": "0x99bbcc", "map": "clouds",    "sun": true  },
+  { "name": "Basement Pipes", "floor": "0x444444", "wall": "0x555555", "sky": "0x222222", "wood": "0x333333", "dark": "0x111111", "map": "pipes",     "sun": false },
+  { "name": "Final Dog Park", "floor": "0x60a840", "wall": "0xbdf2a0", "sky": "0x66ccff", "wood": "0x8a5c37", "dark": "0x2f552f", "map": "park",      "sun": true  }
+]
+```
+
+## Music Themes
+
+The game ships with **10 music themes** that repeat across all 20 levels. Level `N` uses music theme index `(N − 1) % 10`, so every level shares its soundtrack with the level exactly 10 places ahead of it.
+
+Each theme drives four Web Audio API oscillators simultaneously: a bass oscillator, two pad oscillators, and a square-wave melody oscillator. The `chords` array cycles the bass/pad frequencies on a recurring interval, while the `melody` array steps through 8 notes at the theme's `speed` (in milliseconds per step).
+
+| Level | Music Theme Index | Paired With |
+| ----: | :---------------: | ----------: |
+| 1     | 0                 | Level 11    |
+| 2     | 1                 | Level 12    |
+| 3     | 2                 | Level 13    |
+| 4     | 3                 | Level 14    |
+| 5     | 4                 | Level 15    |
+| 6     | 5                 | Level 16    |
+| 7     | 6                 | Level 17    |
+| 8     | 7                 | Level 18    |
+| 9     | 8                 | Level 19    |
+| 10    | 9                 | Level 20    |
+
+<Note>
+  During **Zoomies mode** the melody interval is halved (`speed * 0.48`), making the music feel frantic and chaotic to match Rudi's turbo sprint. The chord oscillators continue cycling at the normal rate.
+</Note>

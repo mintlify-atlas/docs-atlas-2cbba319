@@ -1,72 +1,81 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Rudi Foodi",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
-  },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "primary": "#79d86b",
+    "light": "#b7ecff",
+    "dark": "#4c2c17"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/mbeckham4-hub/Rudi-Foodi"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/mbeckham4-hub/Rudi-Foodi"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Game Guide",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "introduction",
+              "how-to-play"
+            ]
+          },
+          {
+            "group": "Gameplay",
+            "pages": [
+              "gameplay/controls",
+              "gameplay/power-ups",
+              "gameplay/scoring",
+              "gameplay/endings"
+            ]
+          },
+          {
+            "group": "Worlds",
+            "pages": [
+              "worlds/overview",
+              "worlds/level-themes"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developer Guide",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "dev/setup",
+              "dev/project-structure"
+            ]
+          },
+          {
+            "group": "Code Systems",
+            "pages": [
+              "dev/rendering",
+              "dev/game-loop",
+              "dev/audio",
+              "dev/leaderboard"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "dev/contributing",
+              "dev/adding-levels"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
